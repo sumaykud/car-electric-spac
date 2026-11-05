@@ -1,0 +1,1778 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Modul 3D interaktif untuk mengenal komponen dan cara kerja powertrain mobil listrik.">
+<title>Anatomi Mobil Listrik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+:root{
+  /* Layout: full-bleed 3D test bench; instrument columns float at the left/right edges, energy-flow rail along the bottom */
+  --bg:#e7e9ec; --panel:rgba(249,250,251,.9); --panel-solid:#f9fafb; --ink:#111418; --ink-2:#535b67; --ink-3:#8a929e; --line:#d2d7dd;
+  --accent:#d8142a; --hv:#ec6a1e; --ac:#7656f0; --lv:#18935a; --cool:#1d74dc; --hot:#df3f2c; --sig:#3b4452; --mech:#6c7480;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e1013;--panel:rgba(21,24,29,.88);--panel-solid:#15181d;--ink:#e9ecf1;--ink-2:#a4acb8;--ink-3:#6b7380;--line:#2b3038;--accent:#ff3b4d;--hv:#ff7a30;--ac:#9b84ff;--lv:#36c47c;--cool:#4f9dff;--hot:#ff6552;--sig:#b9c1cd;--mech:#9aa2ae;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1013;--panel:rgba(21,24,29,.88);--panel-solid:#15181d;--ink:#e9ecf1;--ink-2:#a4acb8;--ink-3:#6b7380;--line:#2b3038;--accent:#ff3b4d;--hv:#ff7a30;--ac:#9b84ff;--lv:#36c47c;--cool:#4f9dff;--hot:#ff6552;--sig:#b9c1cd;--mech:#9aa2ae;color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.45 var(--f-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font:600 10.5px/1.25 var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin:0}
+
+.app{position:relative;height:100%;overflow:hidden}
+#stage{position:absolute;inset:0;touch-action:none;cursor:grab;overflow:hidden}
+#stage.pick{cursor:pointer}
+#stage canvas{display:block;width:100%;height:100%;outline:none}
+#leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#leaders line{stroke:var(--ink-2);stroke-width:1}
+#leaders circle{fill:var(--bg);stroke:var(--ink);stroke-width:1.2}
+#leaders .sel line{stroke:var(--accent)}
+#leaders .sel circle{stroke:var(--accent);fill:var(--accent)}
+#tags{position:absolute;inset:0;pointer-events:none}
+.tag{position:absolute;left:0;top:0;pointer-events:auto;background:none;border:0;padding:2px 3px;font:600 12.5px/1.1 var(--f-body);color:var(--ink);white-space:nowrap;cursor:pointer;text-align:left;
+  text-shadow:0 0 5px var(--bg),0 0 2px var(--bg),0 0 1px var(--bg)}
+.tag small{display:none;margin-top:2px;font:500 9.5px/1.2 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+.tag.cap small{display:block}
+.tag.r{text-align:right}
+.tag.sel{color:var(--accent)}
+.tag.hov{text-decoration:underline;text-underline-offset:3px}
+.tag:focus-visible{outline:2px solid var(--accent)}
+
+.legend{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:16px;font:600 10.5px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);pointer-events:none;white-space:nowrap;z-index:1}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:16px;height:2px;background:var(--c)}
+.legend i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 3px,transparent 3px 6px)}
+
+#loader{position:absolute;left:50%;top:56px;transform:translateX(-50%);font:500 11px/1 var(--f-mono);letter-spacing:.06em;color:var(--ink-2);background:var(--panel);border:1px solid var(--line);padding:7px 10px;z-index:2;display:flex;gap:10px;align-items:center}
+#loader b{display:block;width:90px;height:2px;background:var(--line);position:relative}
+#loader b i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent)}
+
+.col{position:absolute;top:14px;bottom:14px;display:flex;flex-direction:column;gap:10px;pointer-events:none;z-index:2}
+.col>*{pointer-events:auto}
+.col-left{left:max(16px,env(safe-area-inset-left,0px));width:296px}
+.col-right{right:max(16px,env(safe-area-inset-right,0px));width:346px}
+.card{background:var(--panel);border:1px solid var(--line);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+
+.brand{text-shadow:0 0 6px var(--bg),0 0 2px var(--bg)}
+.brand .rule{width:34px;height:3px;background:var(--accent);margin-bottom:10px}
+.brand h1{font:600 31px/1 var(--f-display);letter-spacing:.005em;margin:0;text-wrap:balance}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:6px 0 0;font:500 10.5px/1.35 var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
+
+.readout{background:var(--panel);border:1px solid var(--line);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:12px 14px 12px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:end}
+.big{font:700 58px/.86 var(--f-display);color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.big.neg{color:var(--lv)}
+.big small{font:600 15px/1 var(--f-display);color:var(--ink-2);margin-left:4px;letter-spacing:.04em}
+#spark{width:112px;height:46px;display:block}
+.pbar{grid-column:1/-1;position:relative;height:6px;background:var(--line);margin-top:8px}
+.pbar i{position:absolute;top:0;bottom:0;background:var(--accent)}
+.pbar i.neg{background:var(--lv)}
+.pbar b{position:absolute;top:-3px;bottom:-3px;left:25%;width:1px;background:var(--ink)}
+.pscale{grid-column:1/-1;display:flex;justify-content:space-between;font:500 9.5px/1 var(--f-mono);color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.pscale{position:relative}
+.pscale span:nth-child(2){position:absolute;left:25%;transform:translateX(-50%)}
+.plabel{grid-column:1/-1;margin-top:6px}
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.stats div{min-width:0}
+.stats dt{font:600 9.5px/1.2 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.stats dd{margin:2px 0 0;font:500 11px/1.1 var(--f-mono);color:var(--ink-2);white-space:nowrap}
+.stats dd b{font:600 19px/1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+
+.parts{flex:1 1 auto;min-height:120px;overflow:auto;padding:6px 0 8px}
+.parts h3{margin:10px 14px 3px}
+.parts h3:first-child{margin-top:6px}
+.part{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:9px;width:100%;padding:5px 14px;border:0;background:none;text-align:left;cursor:pointer;color:var(--ink)}
+.part .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.part .nm{font:500 14px/1.2 var(--f-body);min-width:0}
+.part .lv{font:400 10.5px/1 var(--f-mono);color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.part:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.part[aria-current="true"]{box-shadow:inset 3px 0 0 var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.part[aria-current="true"] .nm{color:var(--accent);font-weight:600}
+.part:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.drive{padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.row .mono{font-size:10.5px;color:var(--ink-3);text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{border:1px solid var(--line);background:var(--panel-solid);padding:6px 8px;font:600 10.5px/1 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;border-radius:2px}
+.chip:hover{color:var(--ink);border-color:var(--ink-3)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip.acc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip:focus-visible,.btn:focus-visible,.node:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.rngs{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.rng{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.rng span{font:600 10.5px/1.2 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.rng output{font:500 11px/1 var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.rng input{grid-column:1/-1}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-5px;background:var(--accent);border:0;border-radius:0}
+input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;background:var(--accent);border:0;border-radius:0}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn{border:1px solid var(--line);background:var(--panel-solid);padding:8px 10px;font:600 11px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:hover{border-color:var(--ink-3)}
+
+.detail{flex:1 1 auto;min-height:0;overflow:auto;padding:14px 16px 16px}
+.d-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.dom{display:inline-flex;align-items:center;gap:6px;font:500 10px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.dom i{width:14px;height:2px;background:var(--c)}
+.detail h2{font:600 30px/1 var(--f-display);margin:8px 0 3px;text-wrap:balance}
+.d-en{margin:0;font:500 10.5px/1.3 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.d-role{margin:10px 0 0;font-size:14.5px;line-height:1.45;color:var(--ink)}
+.chart{margin:12px 0 4px;padding-top:10px;border-top:1px solid var(--line)}
+.chart-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.chart-head .mono{font-size:10.5px;color:var(--ink-2);text-align:right;font-variant-numeric:tabular-nums}
+#chart{display:block;width:100%;height:172px;margin-top:6px}
+.cap{margin:6px 0 0;font-size:12.5px;line-height:1.4;color:var(--ink-2)}
+#cExtra:not(:empty){margin-top:8px}
+#cExtra .rng{margin-top:2px}
+.detail h3{margin:16px 0 6px}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:8px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:20px 1fr;gap:6px;font-size:13.5px;line-height:1.45}
+.steps li::before{content:counter(s);font:600 11px/20px var(--f-mono);color:var(--accent);text-align:center;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);height:20px;border-radius:50%}
+.specs{margin:0;display:grid;grid-template-columns:auto 1fr;gap:0}
+.specs dt,.specs dd{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.specs dt{color:var(--ink-2);padding-right:12px}
+.specs dd{margin:0;font:500 12px/1.4 var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.note{margin:12px 0 0;padding:10px 12px;font-size:13px;line-height:1.45;background:color-mix(in srgb,var(--ink) 5%,transparent);border-left:2px solid var(--ink)}
+.links{display:flex;flex-wrap:wrap;gap:4px}
+
+.view{padding:11px 14px;display:flex;flex-direction:column;gap:8px}
+.view .eyebrow{margin-bottom:-3px}
+.credit{font:400 10.5px/1.4 var(--f-body);color:var(--ink-3);margin:0;padding:0 2px}
+.credit a{color:var(--ink-2)}
+
+.flowbar{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:2;text-align:center;max-width:calc(100% - 700px);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+.flowbar>*{pointer-events:auto}
+.fhead{font:600 10.5px/1.2 var(--f-body);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.fhead em{font-style:normal;color:var(--ink-3)}
+.chain{display:flex;align-items:flex-start;overflow-x:auto;max-width:100%;padding:4px 2px 2px;scrollbar-width:thin}
+.node{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;cursor:pointer;padding:0 2px;width:68px;flex:0 0 auto}
+.node .n{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--ink-3);display:grid;place-items:center;font:600 11px/1 var(--f-mono);background:var(--panel-solid);color:var(--ink-2)}
+.node .t{font:600 10px/1.15 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.node .v{font:400 9.5px/1 var(--f-mono);color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.node.on .n{border-color:var(--c,var(--accent));color:var(--ink)}
+.node.sel .n{background:var(--accent);border-color:var(--accent);color:#fff}
+.node.sel .t{color:var(--accent)}
+.arr{flex:0 0 auto;width:14px;height:30px;display:grid;place-items:center;color:var(--line);font:600 13px/1 var(--f-mono);margin:0 -6px}
+.arr.on{color:var(--c,var(--accent))}
+.arr.rev{transform:scaleX(-1)}
+.hint{font:500 9.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+
+.app.ui-off .col,.app.ui-off .flowbar,.app.ui-off .legend{opacity:0;pointer-events:none}
+.app.ui-off .col>*,.app.ui-off .flowbar>*{pointer-events:none}
+.col,.flowbar,.legend{transition:opacity .25s}
+
+@media (max-width:1180px) and (min-width:1000px){.col-left{width:268px}.col-right{width:312px}.flowbar{max-width:calc(100% - 610px)}.node{width:60px}}
+@media (max-width:999px){
+  body{overflow:auto}
+  .app{height:auto;overflow:visible;display:flex;flex-direction:column;gap:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 22px}
+  .col{display:contents}
+  #stage{position:relative;inset:auto;height:60vh;min-height:330px;max-height:620px;order:2;margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-right,0px)));border-block:1px solid var(--line)}
+  .brand{order:1}
+  .view{order:3}
+  .flowbar{order:4;position:static;transform:none;max-width:100%;align-items:stretch}
+  .chain{justify-content:flex-start}
+  .parts{order:5;flex:none;max-height:none;overflow:visible}
+  .detail{order:6;flex:none;overflow:visible}
+  .readout{order:7}
+  .drive{order:8}
+  .credit{order:9}
+  .legend{top:10px;gap:10px;font-size:9px;flex-wrap:wrap;justify-content:center;width:calc(100% - 24px)}
+  #loader{top:auto;bottom:10px}
+  .hint{display:none}
+  .readout .big{font-size:54px}
+}
+@media (max-width:520px){.legend span:nth-child(5){display:none}.stats{grid-template-columns:repeat(3,1fr)}}
+@media (prefers-reduced-motion: reduce){.col,.flowbar,.legend{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div id="stage">
+    <svg id="leaders" aria-hidden="true"></svg>
+    <div id="tags"></div>
+    <div class="legend" aria-hidden="true">
+      <span><i style="--c:var(--hv)"></i>DC tegangan tinggi</span>
+      <span><i style="--c:var(--ac)"></i>AC 3-fasa</span>
+      <span><i style="--c:var(--lv)"></i>12 V</span>
+      <span><i style="--c:var(--cool)"></i>Pendingin</span>
+      <span><i class="dash" style="--c:var(--sig)"></i>Sinyal CAN</span>
+    </div>
+    <div id="loader"><span id="loaderTxt">Memuat model mobil</span><b><i id="loaderBar"></i></b></div>
+  </div>
+
+  <aside class="col col-left">
+    <header class="brand">
+      <div class="rule"></div>
+      <h1>Mobil Listrik&nbsp;<span>·</span> Dua&nbsp;Motor</h1>
+      <p>Baterai 96s46p · 288–403 V · AWD · rasio 9,05 : 1</p>
+    </header>
+
+    <section class="readout" aria-label="Pembacaan langsung">
+      <div class="big" id="bigP">0<small>kW</small></div>
+      <canvas id="spark" aria-label="Riwayat daya baterai 30 detik"></canvas>
+      <div class="pbar" aria-hidden="true"><i id="pbarFill"></i><b></b></div>
+      <div class="pscale" aria-hidden="true"><span>−100 regen</span><span>0</span><span>+300 kW</span></div>
+      <p class="eyebrow plabel" id="pLabel">Daya baterai</p>
+      <dl class="stats">
+        <div><dt>Kecepatan</dt><dd><b id="sV">0</b> km/j</dd></div>
+        <div><dt>Motor B</dt><dd><b id="sRpm">0</b> rpm</dd></div>
+        <div><dt>SOC</dt><dd><b id="sSoc">0</b> %</dd></div>
+        <div><dt>Tegangan</dt><dd><b id="sVb">0</b> V</dd></div>
+        <div><dt>Arus</dt><dd><b id="sI">0</b> A</dd></div>
+        <div><dt>Suhu pack</dt><dd><b id="sT">0</b> °C</dd></div>
+      </dl>
+    </section>
+
+    <nav class="card parts" id="parts" aria-label="Daftar komponen"></nav>
+
+    <section class="card drive" aria-label="Kendali simulasi">
+      <div class="row"><p class="eyebrow">Skenario</p><span class="mono" id="scenTxt"></span></div>
+      <div class="chips" id="scen">
+        <button class="chip acc" data-s="parkir">Parkir</button>
+        <button class="chip acc" data-s="akselerasi">Akselerasi</button>
+        <button class="chip acc" data-s="jelajah">Jelajah</button>
+        <button class="chip acc" data-s="regen">Regen</button>
+        <button class="chip acc" data-s="ac">Isi AC</button>
+        <button class="chip acc" data-s="dc">Isi DC</button>
+      </div>
+      <div class="rngs">
+      <label class="rng"><span>Pedal gas</span><output id="oThr">0 %</output><input type="range" id="iThr" min="0" max="100" value="0"></label>
+      <label class="rng"><span>Rem</span><output id="oBrk">0 %</output><input type="range" id="iBrk" min="0" max="100" value="0"></label>
+      <label class="rng"><span>Setir</span><output id="oSteer">0°</output><input type="range" id="iSteer" min="-30" max="30" value="0"></label>
+      <label class="rng"><span>Gerak lambat</span><output id="oPlay">1/50</output><input type="range" id="iPlay" min="0" max="100" value="38"></label>
+      </div>
+      <div class="btns"><button class="btn primary" id="bPause">Jeda</button><button class="btn" id="bPower">Matikan</button></div>
+    </section>
+  </aside>
+
+  <aside class="col col-right">
+    <article class="card detail" id="detail" aria-live="polite">
+      <div class="d-top"><p class="eyebrow" id="dGrp"></p><span class="dom" id="dDom"></span></div>
+      <h2 id="dName"></h2>
+      <p class="d-en" id="dEn"></p>
+      <p class="d-role" id="dRole"></p>
+      <div class="chart">
+        <div class="chart-head"><p class="eyebrow" id="cTitle"></p><span class="mono" id="cMeta"></span></div>
+        <canvas id="chart"></canvas>
+        <p class="cap" id="cCap"></p>
+        <div id="cExtra"></div>
+      </div>
+      <h3 class="eyebrow">Cara kerja</h3>
+      <ol class="steps" id="dSteps"></ol>
+      <h3 class="eyebrow">Spesifikasi tipikal</h3>
+      <dl class="specs" id="dSpecs"></dl>
+      <p class="note" id="dFact"></p>
+      <h3 class="eyebrow">Terhubung ke</h3>
+      <div class="links" id="dLinks"></div>
+    </article>
+
+    <section class="card view" aria-label="Tampilan">
+      <p class="eyebrow">Kamera</p>
+      <div class="chips" id="cams">
+        <button class="chip" data-cam="utama">Utama</button>
+        <button class="chip" data-cam="samping">Samping</button>
+        <button class="chip" data-cam="atas">Atas</button>
+        <button class="chip" data-cam="bawah">Bawah</button>
+        <button class="chip" data-cam="depan">Depan</button>
+      </div>
+      <p class="eyebrow">Bodi</p>
+      <div class="chips" id="bodies">
+        <button class="chip" data-body="solid">Solid</button>
+        <button class="chip" data-body="kaca">Kaca</button>
+        <button class="chip" data-body="tanpa">Tanpa</button>
+        <button class="chip" data-body="urai">Urai</button>
+      </div>
+      <p class="eyebrow">Overlay</p>
+      <div class="chips" id="ovl">
+        <button class="chip acc" data-ov="labels">Label</button>
+        <button class="chip acc" data-ov="flows">Aliran</button>
+        <button class="chip acc" data-ov="cables">Kabel HV</button>
+        <button class="chip acc" data-ov="cool">Pendingin</button>
+        <button class="chip acc" data-ov="isolate">Isolasi</button>
+      </div>
+    </section>
+    <p class="credit">Model mobil 3D: <a href="https://sketchfab.com/3d-models/tesla-2018-model-3-5ef9b845aaf44203b6d04e2c677e444f" target="_blank" rel="noopener">“Tesla 2018 Model 3”</a> oleh Ameer Studio, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, dikompresi. Komponen powertrain, angka, dan simulasi adalah ilustrasi edukatif, bukan data resmi pabrikan.</p>
+  </aside>
+
+  <section class="flowbar" aria-label="Aliran energi">
+    <p class="fhead">Aliran energi <em>· klik untuk melacak</em> · <span id="flowMode"></span></p>
+    <div class="chain" id="chain"></div>
+    <p class="hint">Seret untuk memutar · gulir untuk zoom · klik komponen · H sembunyikan panel</p>
+  </section>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ================= helpers ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const TAU = Math.PI * 2;
+const NF = {};
+const fmt = (n, d = 0) => (NF[d] ??= new Intl.NumberFormat('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d })).format(n);
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+const isDesk = () => matchMedia('(min-width: 1000px)').matches;
+
+/* ================= content ================= */
+const DOM = { hv: ['hv', 'DC tegangan tinggi'], ac: ['ac', 'AC 3-fasa'], mech: ['mech', 'Mekanis'], lv: ['lv', '12 V'], cool: ['cool', 'Pendingin'], sig: ['sig', 'Sinyal'] };
+const PARTS = [
+  { id: 'baterai', grp: 'Penyimpanan energi', dom: 'hv', name: 'Paket Baterai', en: 'High-voltage battery pack',
+    role: 'Menyimpan energi listrik DC bertegangan tinggi, sekaligus menjadi lantai struktural mobil.',
+    steps: ['Ribuan sel litium-ion silinder (tipe 2170: Ø21 × 70 mm) dipasang paralel dalam kelompok berisi 46 sel. Paralel menjumlahkan kapasitas (Ah), bukan tegangan.',
+      '96 kelompok itu disambung seri (96s), sehingga tegangannya dijumlahkan: 96 × 3,6 V ≈ 346 V nominal.',
+      'Saat berkendara, ion litium berpindah dari anoda grafit ke katoda melewati elektrolit, sementara elektron mengalir lewat kabel ke inverter sebagai arus DC.',
+      'Saat regeneratif atau mengisi daya, arus dibalik dan ion kembali tersimpan di anoda.'],
+    specs: [['Konfigurasi', '96s46p · 4.416 sel'], ['Energi', '≈ 75 kWh'], ['Tegangan', '288 – 403 V'], ['Kimia sel', 'NCA'], ['Massa', '≈ 480 kg']],
+    fact: 'Pack dipasang rata di lantai di antara kedua as roda. Pusat gravitasi jadi rendah, dan rangka pack ikut memperkaku bodi.',
+    links: ['bms', 'kontaktor', 'termal'],
+    chart: ['Tegangan pack vs SOC', 'Garis: tegangan tanpa beban (OCV). Titik merah: tegangan saat ini. Saat arus besar, tegangan turun di bawah garis karena hambatan dalam sel.'],
+    view: { d: [0.55, 1, 0.45], r: 4.2, t: [0, 0.22, 0.1] }, anchor: [-0.36, 0.29, 0.25] },
+  { id: 'bms', grp: 'Penyimpanan energi', dom: 'sig', name: 'BMS', en: 'Battery management system',
+    role: 'Otak baterai: mengukur setiap kelompok sel, menghitung sisa energi, dan memutus sistem bila kondisinya berbahaya.',
+    steps: ['Papan pemantau di tiap modul membaca tegangan setiap kelompok sel dengan ketelitian milivolt, serta suhu dari termistor.',
+      'Data dikirim berantai (daisy chain) lewat jalur terisolasi ke pengendali BMS utama.',
+      'BMS menghitung SOC (sisa muatan) dengan menjumlahkan arus masuk-keluar (coulomb counting) lalu mengoreksinya dengan kurva tegangan.',
+      'Balancing pasif: kelompok yang tegangannya paling tinggi dibuang sedikit energinya lewat resistor, supaya semua kelompok setara.',
+      'Batas arus pengisian dan pemakaian dikirim ke VCU dan charger. Jika tegangan atau suhu keluar batas, BMS membuka kontaktor.'],
+    specs: [['Kanal tegangan', '96 kelompok'], ['Sensor suhu', 'Termistor tiap modul'], ['Balancing', 'Pasif (resistor)'], ['Komunikasi', 'CAN ke VCU & charger']],
+    fact: 'Pack hanya sekuat kelompok sel terlemahnya. Kelompok yang paling cepat penuh menghentikan pengisian, dan yang paling cepat kosong menghentikan perjalanan. Karena itu balancing penting.',
+    links: ['baterai', 'kontaktor', 'vcu'],
+    chart: ['Tegangan 96 kelompok sel', 'Batang = selisih dari rata-rata (mV). Batang merah sedang di-balancing. Di bawah beban besar, selisihnya melebar karena hambatan tiap kelompok sedikit berbeda.'],
+    view: { d: [0.4, 1, 0.9], r: 1.6, t: [0, 0.27, 1.0] }, anchor: [0, 0.33, 1.02] },
+  { id: 'kontaktor', grp: 'Penyimpanan energi', dom: 'hv', name: 'Kontaktor & Sekring', en: 'HV junction box · contactors · pyro fuse',
+    role: 'Gerbang pengaman antara baterai dan seluruh sistem tegangan tinggi.',
+    steps: ['Saat mobil mati, kedua kontaktor utama terbuka sehingga tegangan tinggi terkurung di dalam pack.',
+      'Saat dinyalakan, kontaktor negatif menutup, lalu kontaktor pra-isi menutup lewat resistor. Kapasitor di inverter terisi perlahan, tanpa lonjakan arus atau percikan api.',
+      'Setelah tegangan kapasitor mencapai ± 95 % tegangan pack, kontaktor positif utama menutup dan jalur pra-isi dilepas. Mobil berstatus SIAP.',
+      'Sekring piroteknik memutus jalur HV dalam hitungan milidetik ketika airbag mengembang atau terjadi hubungan singkat.'],
+    specs: [['Kontaktor', '2 utama + 1 pra-isi'], ['Waktu pra-isi', '± 0,1 – 0,3 s'], ['Ambang pra-isi', '≥ 95 % tegangan pack'], ['Proteksi', 'Sekring piro + sekring lebur']],
+    fact: 'Tanpa pra-isi, kapasitor kosong di inverter akan menyedot ribuan ampere sesaat ketika kontaktor menutup, dan kontak bisa meleleh lalu menempel.',
+    links: ['baterai', 'inverter', 'pengisian'],
+    chart: ['Urutan pra-isi', 'Tegangan kapasitor DC-link naik mengikuti kurva RC sebelum kontaktor utama menutup. Waktu diperlambat agar terlihat.'],
+    view: { d: [0.5, 1, 0.75], r: 1.15, t: [0.22, 0.36, -0.82] }, anchor: [0.24, 0.44, -0.8] },
+  { id: 'pengisian', grp: 'Pengisian & listrik bantu', dom: 'hv', name: 'Port & Pengisi On-Board', en: 'Charge inlet · on-board charger (OBC)',
+    role: 'Jalur masuk energi dari luar: AC lewat pengisi di dalam mobil, atau DC langsung ke baterai.',
+    steps: ['Pengisian AC (stop kontak rumah atau wallbox): listrik bolak-balik masuk lewat port menuju OBC.',
+      'OBC menyearahkan AC menjadi DC dan memperbaiki faktor daya (PFC), lalu konverter DC-DC terisolasi menyesuaikan tegangan dengan pack. Dayanya dibatasi ukuran OBC, sekitar 11 kW.',
+      'Pengisian DC cepat: charger di stasiun sudah menghasilkan DC. Port tersambung langsung ke baterai lewat kontaktor dan melewati OBC, sehingga dayanya bisa di atas 150 kW.',
+      'BMS dan charger terus berkomunikasi. Arus dibuat besar saat SOC rendah, lalu diturunkan bertahap (taper) menjelang penuh untuk melindungi sel.'],
+    specs: [['Port', 'CCS2 (AC + DC)'], ['AC maks.', '11 kW · 3-fasa 16 A'], ['DC maks.', '≈ 170 kW'], ['Efisiensi OBC', '≈ 93 %']],
+    fact: 'Itulah sebabnya pengisian dari 80 % ke 100 % sering memakan waktu hampir sama dengan dari 10 % ke 80 %.',
+    links: ['kontaktor', 'baterai', 'bms'],
+    chart: ['Kurva daya pengisian', 'Garis tebal: daya DC cepat menurut SOC. Garis tipis: AC 11 kW. Titik = kondisi sekarang.'],
+    view: { d: [1, 0.75, 0.3], r: 4.7, t: [0.6, 0.55, -1.95] }, anchor: [-0.2, 0.44, -0.8] },
+  { id: 'dcdc', grp: 'Pengisian & listrik bantu', dom: 'lv', name: 'DC-DC & Aki 12 V', en: 'DC-DC converter · 12 V battery',
+    role: 'Menurunkan tegangan tinggi menjadi ± 14 V untuk lampu, layar, pompa, dan semua unit kendali.',
+    steps: ['Sakelar elektronik mencacah DC 350 V menjadi AC berfrekuensi tinggi.',
+      'Trafo kecil menurunkan tegangannya, sekaligus memisahkan (mengisolasi) sisi tegangan tinggi dari bodi mobil.',
+      'Hasilnya disearahkan menjadi ± 14 V untuk jaringan 12 V dan untuk mengisi aki.',
+      'Aki 12 V menghidupkan komputer dan kontaktor saat mobil dinyalakan. Tanpa aki 12 V, baterai besar tidak bisa “dibuka”.'],
+    specs: [['Masukan', '288 – 403 V DC'], ['Keluaran', '≈ 14 V DC'], ['Daya maks.', '≈ 2,5 kW'], ['Aki', '12 V']],
+    fact: 'Daya yang sama butuh arus 25 kali lebih besar di sisi 14 V dibanding di sisi 350 V. Karena itu sistem penggerak memakai tegangan tinggi: kabelnya bisa lebih tipis dan ringan.',
+    links: ['kontaktor', 'vcu', 'termal'],
+    chart: ['Beban jaringan 12 V', 'Perkiraan beban listrik bantu. Perhatikan arus di sisi 14 V dibanding sisi tegangan tinggi.'],
+    view: { d: [-0.7, 0.9, 0.4], r: 3.4, t: [-0.5, 0.4, 0.5] }, anchor: [-0.42, 0.62, 1.83] },
+  { id: 'inverter', grp: 'Penggerak belakang', dom: 'ac', name: 'Inverter', en: 'Traction inverter · SiC MOSFET',
+    role: 'Mengubah DC dari baterai menjadi AC 3-fasa yang frekuensi dan besarnya bisa diatur, sehingga torsi dan putaran motor terkendali.',
+    steps: ['Enam sakelar daya (MOSFET silikon karbida) tersusun menjadi tiga pasang, satu pasang untuk tiap fasa U, V, W.',
+      'Sakelar menyala-padam ribuan kali per detik (PWM). Lebar pulsanya dimodulasi mengikuti gelombang sinus.',
+      'Lilitan motor bersifat induktif, sehingga pulsa-pulsa itu diratakan menjadi arus sinus yang halus.',
+      'Frekuensi arus menentukan kecepatan medan putar, amplitudonya menentukan torsi. Saat regeneratif kerjanya terbalik: AC dari motor disearahkan menjadi DC untuk mengisi baterai.'],
+    specs: [['Sakelar', '6 posisi · SiC MOSFET'], ['Frekuensi PWM', '≈ 10 – 20 kHz'], ['Efisiensi', '≈ 98 %'], ['Pendinginan', 'Cairan glikol']],
+    fact: 'Frekuensi listrik ke motor naik seiring kecepatan. Pada 100 km/j, motor 6 kutub di sini menerima arus sekitar 360 Hz, tujuh kali frekuensi listrik PLN.',
+    links: ['kontaktor', 'motor-belakang', 'vcu'],
+    chart: ['Arus 3-fasa & pulsa PWM', 'Atas: arus fasa U, V, W. Bawah: pulsa gate fasa U; pulsa melebar ketika arus sinus tinggi. Jendela = 2 periode listrik, frekuensi pembawa diperkecil agar terbaca.'],
+    view: { d: [0.45, 1, 0.75], r: 1.25, t: [-0.13, 0.52, -1.56] }, anchor: [-0.13, 0.62, -1.6] },
+  { id: 'motor-belakang', grp: 'Penggerak belakang', dom: 'ac', name: 'Motor Belakang', en: 'Interior permanent-magnet synchronous motor',
+    role: 'Mengubah energi listrik menjadi putaran. Motor utama yang bekerja hampir sepanjang waktu.',
+    steps: ['Arus 3-fasa mengalir di lilitan tembaga stator dan membentuk medan magnet yang berputar.',
+      'Magnet permanen pada rotor (merah = kutub utara, biru = selatan) tertarik mengikuti medan itu, sehingga rotor berputar sinkron tanpa slip.',
+      'Kecepatan rotor = frekuensi listrik ÷ jumlah pasang kutub. Dengan 3 pasang kutub, 300 Hz menjadi 6.000 rpm.',
+      'Magnet ditanam di dalam inti rotor (IPM). Selain gaya magnet, ada torsi reluktansi tambahan, sehingga motor efisien di kecepatan jelajah.'],
+    specs: [['Daya puncak', '≈ 220 kW'], ['Torsi puncak', '≈ 420 Nm'], ['Putaran maks.', '≈ 18.000 rpm'], ['Kutub', '6 (3 pasang)'], ['Efisiensi puncak', '≈ 97 %']],
+    fact: 'Torsi penuh tersedia sejak 0 rpm. Itulah sebabnya mobil listrik terasa sangat responsif saat mulai bergerak.',
+    links: ['inverter', 'gigi-reduksi', 'termal'],
+    chart: ['Medan putar & kurva torsi', 'Kiri: medan stator (panah) menarik kutub rotor; slot berwarna = arah arus. Kanan: torsi maksimum menurut putaran, titik = kondisi sekarang.'],
+    view: { d: [-0.35, 0.75, 1], r: 1.3, t: [-0.14, 0.4, -1.53] }, anchor: [-0.34, 0.39, -1.53] },
+  { id: 'gigi-reduksi', grp: 'Penggerak belakang', dom: 'mech', name: 'Gigi Reduksi', en: 'Single-speed reduction gearbox',
+    role: 'Menurunkan putaran motor yang sangat tinggi sambil melipatgandakan torsinya.',
+    steps: ['Pinion 17 gigi di poros motor memutar roda gigi 52 gigi: rasio 3,06.',
+      'Di poros perantara, roda gigi 25 gigi memutar gigi cincin diferensial 74 gigi: rasio 2,96.',
+      'Total 3,06 × 2,96 ≈ 9,05. Putaran turun 9 kali, torsi naik 9 kali (dikurangi gesekan ± 3 %).',
+      'Gigi miring (helikal) dipakai agar senyap. Cukup satu percepatan karena motor listrik efisien dari 0 hingga belasan ribu rpm, jadi tanpa kopling dan tanpa ganti gigi.'],
+    specs: [['Rasio total', '9,05 : 1'], ['Tahap', '2 · gigi helikal'], ['Efisiensi', '≈ 97 %'], ['Pelumasan', 'Oli, didinginkan']],
+    fact: 'Pada 130 km/j, motor berputar sekitar 9.400 rpm sementara roda hanya sekitar 1.030 rpm.',
+    links: ['motor-belakang', 'diferensial'],
+    chart: ['Putaran & torsi masuk vs keluar', 'Gigi reduksi menukar putaran dengan torsi. Daya (putaran × torsi) hampir tidak berubah.'],
+    view: { d: [0.55, 0.75, -0.6], r: 1.25, t: [0.13, 0.4, -1.41] }, anchor: [0.16, 0.52, -1.43] },
+  { id: 'diferensial', grp: 'Penggerak belakang', dom: 'mech', name: 'Diferensial', en: 'Open bevel differential',
+    role: 'Membagi torsi ke roda kiri dan kanan, sekaligus membiarkan keduanya berputar dengan kecepatan berbeda saat menikung.',
+    steps: ['Gigi cincin memutar rumah diferensial. Di dalamnya ada dua gigi satelit pada sebuah pin, dan dua gigi samping yang tersambung ke poros roda.',
+      'Jalan lurus: satelit tidak berputar pada pinnya, sehingga seluruh rakitan berputar sebagai satu kesatuan dan kedua roda sama cepat.',
+      'Menikung: roda luar menempuh lingkaran lebih besar. Satelit berputar pada pinnya, sehingga roda luar lebih cepat dan roda dalam lebih lambat dengan selisih yang sama.',
+      'Torsi tetap dibagi rata kiri-kanan. Bila satu roda selip, sistem kontrol traksi mengerem roda itu.'],
+    specs: [['Jenis', 'Terbuka, gigi bevel'], ['Gigi satelit', '2'], ['Pembagian torsi', '50 : 50']],
+    fact: 'Geser slider Setir dan perhatikan gigi satelit di dalam rumah diferensial mulai berputar.',
+    links: ['gigi-reduksi', 'poros-roda'],
+    chart: ['Kecepatan roda saat menikung', 'Tampak atas as belakang. Panjang jejak sebanding dengan kecepatan tiap roda.'],
+    view: { d: [0.35, 0.8, -0.75], r: 1.15, t: [0.12, 0.34, -1.29] }, anchor: [0.12, 0.3, -1.25] },
+  { id: 'poros-roda', grp: 'Penggerak belakang', dom: 'mech', name: 'Poros Roda & Roda', en: 'Half-shafts · CV joints · wheels',
+    role: 'Meneruskan torsi dari diferensial ke roda dan mengubahnya menjadi gaya dorong di jalan.',
+    steps: ['Poros penggerak membawa torsi ke tiap roda. Sambungan CV (constant velocity) di kedua ujung menjaga putaran tetap mulus walau suspensi naik-turun atau roda berbelok.',
+      'Gaya dorong = torsi roda ÷ jari-jari roda. Motor belakang 420 Nm × 9,05 ≈ 3.700 Nm di roda, dibagi 0,334 m ≈ 11.000 N.',
+      'Kecepatan maksimum tercapai ketika gaya dorong sama dengan hambatan udara ditambah gesekan ban.',
+      'Saat regeneratif alirannya terbalik: momentum mobil memutar motor sebagai generator. Rem gesek baru membantu bila perlambatan melebihi kemampuan regen.'],
+    specs: [['Jari-jari roda', '0,334 m'], ['Sambungan', 'CV dalam & luar'], ['Rem', 'Cakram + kaliper']],
+    fact: 'Pada 120 km/j, lebih dari separuh hambatan berasal dari udara, dan hambatan itu naik dengan kuadrat kecepatan.',
+    links: ['diferensial', 'motor-depan'],
+    chart: ['Gaya dorong vs hambatan', 'Merah: gaya dorong maksimum (dua motor). Gelap: hambatan udara + ban. Titik = gaya saat ini.'],
+    view: { d: [0.25, 0.55, -1], r: 2.6, t: [0, 0.34, -1.29] }, anchor: [-0.47, 0.34, -1.29] },
+  { id: 'motor-depan', grp: 'Penggerak depan', dom: 'ac', name: 'Unit Motor Depan', en: 'AC induction motor · front drive unit',
+    role: 'Motor kedua untuk penggerak empat roda (AWD). Membantu saat akselerasi kuat atau jalan licin.',
+    steps: ['Stator bekerja sama seperti motor belakang: arus 3-fasa membuat medan putar.',
+      'Rotornya tidak bermagnet. Isinya batang tembaga yang ujung-ujungnya disatukan cincin, disebut sangkar tupai.',
+      'Medan yang berputar lebih cepat dari rotor menginduksi arus di batang-batang itu. Arus induksi membentuk medan rotor sendiri, dan interaksi keduanya menghasilkan torsi.',
+      'Rotor selalu sedikit tertinggal dari medan (slip ± 1–5 %); tanpa slip tidak ada torsi. Tanpa arus, motor ini berputar bebas tanpa rugi magnet, cocok sebagai motor bantu.'],
+    specs: [['Daya puncak', '≈ 150 kW'], ['Torsi puncak', '≈ 240 Nm'], ['Rotor', 'Sangkar tembaga, tanpa magnet'], ['Kutub', '4 (2 pasang)'], ['Inverter', 'Terpasang di atas motor']],
+    fact: 'Saat jelajah ringan, VCU hanya memakai motor belakang. Motor depan ikut berputar karena terhubung ke roda, tetapi tidak dialiri arus.',
+    links: ['vcu', 'poros-roda', 'kontaktor'],
+    chart: ['Slip: medan vs rotor', 'Kiri: medan (panah) berputar sedikit lebih cepat dari batang rotor; slip diperbesar 8× agar terlihat. Kanan: kurva torsi motor depan.'],
+    view: { d: [0.5, 0.8, -1], r: 1.55, t: [0.08, 0.42, 1.38] }, anchor: [0.16, 0.63, 1.4] },
+  { id: 'vcu', grp: 'Kendali & termal', dom: 'sig', name: 'VCU & Pedal', en: 'Vehicle control unit · accelerator pedal',
+    role: 'Penerjemah keinginan pengemudi menjadi perintah torsi untuk kedua motor.',
+    steps: ['Pedal gas punya dua sensor posisi yang saling memeriksa. Jika hasilnya tidak cocok, torsi dibatasi demi keamanan.',
+      'VCU menghitung torsi yang diminta dari posisi pedal, kecepatan, mode berkendara, dan batas daya dari BMS.',
+      'Perintah torsi dikirim lewat jaringan CAN ke inverter depan dan belakang, puluhan hingga ratusan kali per detik. VCU juga membagi torsi depan-belakang.',
+      'Pedal dilepas: VCU meminta torsi negatif sehingga motor menjadi generator (regeneratif, “one-pedal driving”).'],
+    specs: [['Masukan', 'Pedal, rem, setir, kecepatan'], ['Keluaran', 'Perintah torsi via CAN'], ['Siklus kendali', '≈ 10 ms']],
+    fact: 'Pedal gas mobil listrik tidak membuka katup apa pun. Pedal itu hanya sensor, dan rasa responsnya ditentukan sepenuhnya oleh perangkat lunak.',
+    links: ['inverter', 'motor-depan', 'bms'],
+    chart: ['Peta pedal → torsi & lalu lintas CAN', 'Kiri: torsi yang diminta menurut posisi pedal; di bawah nol = regen. Kanan: contoh pesan CAN (ID ilustratif).'],
+    view: { d: [0.8, 0.7, -0.75], r: 1.5, t: [0.15, 0.55, 0.95] }, anchor: [0.02, 0.76, 0.86] },
+  { id: 'termal', grp: 'Kendali & termal', dom: 'cool', name: 'Sistem Termal', en: 'Coolant loop · pump · radiator',
+    role: 'Menjaga baterai, inverter, dan motor di suhu kerja idealnya.',
+    steps: ['Pompa listrik mengalirkan cairan pendingin (air + glikol) melalui pelat pendingin di bawah sel baterai, inverter, dan rumah motor.',
+      'Panas dari komponen diserap cairan, lalu dibuang lewat radiator di depan mobil dengan bantuan kipas.',
+      'Saat cuaca dingin, panas limbah motor bisa dipakai menghangatkan baterai dan kabin (pompa panas).',
+      'Sebelum pengisian DC cepat, baterai dipanaskan dulu (preconditioning), karena sel menerima arus besar paling baik di sekitar 25–45 °C.'],
+    specs: [['Cairan', 'Air + glikol 50/50'], ['Suhu ideal baterai', '20 – 40 °C'], ['Pompa', 'Listrik, kecepatan variabel']],
+    fact: 'Efisiensi motor listrik di atas 90 %, jadi panas yang harus dibuang jauh lebih kecil daripada mesin bensin, yang membuang sekitar dua pertiga energinya sebagai panas.',
+    links: ['baterai', 'inverter', 'motor-belakang'],
+    chart: ['Suhu komponen', 'Pita hijau = rentang kerja ideal tiap komponen. Akselerasi panjang menaikkan suhu motor; pengisian DC menaikkan suhu baterai.'],
+    view: { d: [0.8, 1.1, 1], r: 4.6, t: [0, 0.3, 0.6] }, anchor: [0, 0.62, 2.06] },
+];
+const P = Object.fromEntries(PARTS.map(p => [p.id, p]));
+const GROUPS = [...new Set(PARTS.map(p => p.grp))];
+const CHAIN = [['pengisian', 'Port · OBC', 'hv'], ['kontaktor', 'Kontaktor', 'hv'], ['baterai', 'Baterai', 'hv'], ['inverter', 'Inverter', 'hv'], ['motor-belakang', 'Motor', 'ac'], ['gigi-reduksi', 'Gigi', 'mech'], ['diferensial', 'Diferensial', 'mech'], ['poros-roda', 'Roda', 'mech']];
+
+/* ================= theme tokens ================= */
+let C = {};
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['bg', 'panel-solid', 'ink', 'ink-2', 'ink-3', 'line', 'accent', 'hv', 'ac', 'lv', 'cool', 'hot', 'sig', 'mech']) C[k] = cs.getPropertyValue('--' + k).trim() || '#888';
+}
+function rgba(hex, a) {
+  let h = hex.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+}
+const isDark = () => { const h = C.bg.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return ((n >> 16 & 255) + (n >> 8 & 255) + (n & 255)) / 3 < 100; };
+readTokens();
+
+/* ================= physics ================= */
+const VEH = { m: 1850, cda: 0.23 * 2.22, crr: 0.009, g: 9.81, rho: 1.2, rw: 0.3335, G: 9.05, eta: 0.97, track: 1.662, wb: 2.864,
+  R: { T: 420, P: 220e3, pp: 3, eta: 0.94 }, F: { T: 240, P: 150e3, pp: 2, eta: 0.91 }, ns: 96, np: 46, ah: 4.8, rc: 0.014, regenP: 70e3, Pbmax: 320e3 };
+const OCV = [[0, 3.0], [0.05, 3.3], [0.1, 3.42], [0.2, 3.53], [0.3, 3.6], [0.4, 3.66], [0.5, 3.73], [0.6, 3.81], [0.7, 3.9], [0.8, 3.98], [0.9, 4.07], [1, 4.18]];
+function ocvCell(s) { s = clamp(s, 0, 1); for (let i = 1; i < OCV.length; i++) if (s <= OCV[i][0]) { const [a, va] = OCV[i - 1], [b, vb] = OCV[i]; return va + (vb - va) * (s - a) / (b - a); } return 4.18; }
+const RPACK = VEH.ns * VEH.rc / VEH.np;
+const dcCurve = s => s < 0.05 ? 140e3 + 600e3 * s : s < 0.3 ? 170e3 : s < 0.8 ? 170e3 - (s - 0.3) / 0.5 * 110e3 : Math.max(8e3, 60e3 - (s - 0.8) / 0.2 * 52e3);
+const acCurve = s => s < 0.95 ? 11e3 : Math.max(1.2e3, 11e3 * (1 - (s - 0.95) / 0.05));
+let T1080 = 0; for (let s = 0.1; s < 0.8; s += 0.001) T1080 += 75e3 * 3.6 / (dcCurve(s) * 0.97);
+const TIMEK = { ac: 240, dc: 30 };
+const avail = (u, w) => Math.min(u.T, u.P / Math.max(w, 1));
+
+const S = { scen: 'jelajah', target: 80 / 3.6, thr: 0, brk: 0, steer: 0, v: 80 / 3.6, soc: 0.78, Tr: 0, Tf: 0, Pr: 0, Pf: 0, Pb: 0, Vb: 350, ocv: 350, I: 0, Fb: 0, Fd: 0, Fres: 0, aux: 600, charge: null, Pch: 0, rpm: 0,
+  temp: { pack: 27, inv: 34, motR: 42, motF: 31, cool: 26 }, play: 1 / 50, paused: false, explode: 0, exT: 0, body: 'kaca', sel: 'motor-belakang', hover: null,
+  ov: { labels: true, flows: true, cables: true, cool: true, isolate: false }, cellMode: 'tegangan',
+  a: { rL: 0, rR: 0, fL: 0, fR: 0, mR: 0, mF: 0, fieldF: 0, fan: 0 }, hist: [], can: [] };
+const PC = { phase: 'ready', t: 0, hist: [] };
+const PCT = { neg: 0.05, pre: 0.3, tau: 0.28 }; PCT.main = PCT.pre - PCT.tau * Math.log(0.05); PCT.open = PCT.main + 0.25; PCT.end = PCT.open + 0.2;
+function pcState(t) {
+  if (PC.phase === 'off') return { neg: 0, pre: 0, pos: 0, v: 0 };
+  if (PC.phase === 'ready') return { neg: 1, pre: 0, pos: 1, v: 1 };
+  return { neg: t >= PCT.neg ? 1 : 0, pre: t >= PCT.pre && t < PCT.open ? 1 : 0, pos: t >= PCT.main ? 1 : 0, v: t < PCT.pre ? 0 : t >= PCT.main ? 1 : 1 - Math.exp(-(t - PCT.pre) / PCT.tau) };
+}
+// brick deviations (mV) and resistance spread
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const DEV = Array.from({ length: 96 }, () => (rnd() - 0.5) * 22);
+const RDEV = Array.from({ length: 96 }, () => (rnd() - 0.5) * 0.16);
+const BAL = new Uint8Array(96);
+let brick = new Float32Array(96), bmsDelta = 0;
+
+function setScenario(s) {
+  if (PC.phase === 'off') startPrecharge();
+  S.scen = s; S.charge = null;
+  if (s === 'jelajah') S.target = S.v > 3 ? S.v : 80 / 3.6;
+  refreshChips();
+}
+function startPrecharge() { PC.phase = 'seq'; PC.t = 0; PC.hist = []; }
+function powerOff() { PC.phase = 'off'; S.scen = 'parkir'; S.charge = null; refreshChips(); }
+
+function scenario(ready) {
+  const w = S.v / VEH.rw * VEH.G;
+  switch (S.scen) {
+    case 'parkir': S.thr = 0; S.brk = S.v > 0.05 ? 0.45 : 0; break;
+    case 'akselerasi': S.thr = 1; S.brk = 0; if (S.v >= 100 / 3.6) { S.scen = 'jelajah'; S.target = 100 / 3.6; refreshChips(); } break;
+    case 'jelajah': {
+      const e = S.target - S.v, Fres = 0.5 * VEH.rho * VEH.cda * S.v * S.v + VEH.crr * VEH.m * VEH.g;
+      const ff = Fres * VEH.rw / (VEH.G * VEH.eta) / (avail(VEH.R, w) + avail(VEH.F, w));
+      S.thr = clamp(ff + e * 0.06, 0, 1); S.brk = e < -2 ? clamp(-e * 0.04, 0, 0.4) : 0; break;
+    }
+    case 'regen': S.thr = 0; S.brk = 0.3; if (S.v < 0.3) { S.scen = 'parkir'; refreshChips(); } break;
+    case 'ac': case 'dc':
+      if (S.v > 0.05) { S.thr = 0; S.brk = 0.45; S.charge = null; }
+      else { S.thr = 0; S.brk = 0; if (ready) S.charge = S.scen; }
+      break;
+  }
+}
+
+function step(dt) {
+  if (PC.phase === 'seq') { PC.t += dt; PC.hist.push([PC.t, pcState(PC.t).v]); if (PC.t >= PCT.end) PC.phase = 'ready'; }
+  const ready = PC.phase === 'ready';
+  scenario(ready);
+  const v = S.v, wW = v / VEH.rw, wM = wW * VEH.G;
+  S.rpm = wM * 60 / TAU;
+  const avR = avail(VEH.R, wM), avF = avail(VEH.F, wM);
+  const drive = ready && !S.charge;
+  const thr = drive ? S.thr : 0;
+  let Tr = 0, Tf = 0, Fb = 0;
+  if (thr > 0) {
+    const need = thr * (avR + avF); if (need <= avR * 0.55) Tr = need; else { Tr = Math.min(avR, need * 0.62); Tf = Math.min(avF, need - Tr); }
+    const Pel = (Tr / VEH.R.eta + Tf / VEH.F.eta) * wM / 0.98; S.limited = Pel > VEH.Pbmax; // BMS discharge-power limit
+    if (S.limited) { const k = VEH.Pbmax / Pel; Tr *= k; Tf *= k; }
+  } else S.limited = false;
+  let dec = S.brk * 0.8;
+  if (drive && thr === 0 && S.scen === 'manual' && v > 1.5) dec = Math.max(dec, 0.07);
+  if (dec > 0) {
+    const Freq = dec * VEH.m * VEH.g; let Freg = 0;
+    if (drive && v > 0.4) Freg = Math.min(Freq, Math.min(VEH.regenP / Math.max(v, 0.5), VEH.R.T * 0.8 * VEH.G / VEH.rw) * clamp((v - 0.4) / 1.6, 0, 1));
+    Tr = -Freg * VEH.rw / VEH.G; Tf = 0; Fb = Freq - Freg;
+  }
+  if (!ready && v > 0.05) Fb = Math.max(Fb, 0.35 * VEH.m * VEH.g);
+  const Fd = (Tr + Tf) * VEH.G * VEH.eta / VEH.rw;
+  const Fres = v > 0.01 ? 0.5 * VEH.rho * VEH.cda * v * v + VEH.crr * VEH.m * VEH.g : 0;
+  const a = (Fd - Fres - (v > 0.01 ? Fb : 0)) / VEH.m;
+  S.v = Math.max(0, v + a * dt); if (S.v < 0.02 && Fd <= 0) S.v = 0;
+  S.Tr = Tr; S.Tf = Tf; S.Fb = Fb; S.Fd = Fd; S.Fres = Fres;
+  const PmR = Tr * wM, PmF = Tf * wM;
+  const el = (Pm, e) => Pm >= 0 ? Pm / (e * 0.98) : Pm * e * 0.98;
+  S.Pr = el(PmR, VEH.R.eta); S.Pf = el(PmF, VEH.F.eta);
+  S.aux = ready ? 560 + (S.temp.motR > 60 || S.temp.pack > 34 ? 260 : 0) + (S.charge ? 120 : 0) : 0;
+  let Pb = S.Pr + S.Pf + S.aux; S.Pch = 0;
+  if (S.charge && ready) { S.Pch = S.soc >= 0.999 ? 0 : (S.charge === 'ac' ? acCurve(S.soc) : dcCurve(S.soc)); Pb = S.aux - S.Pch * (S.charge === 'ac' ? 0.93 : 0.985); }
+  const ocv = VEH.ns * ocvCell(S.soc);
+  const I = (ocv - Math.sqrt(Math.max(ocv * ocv - 4 * RPACK * Pb, 1))) / (2 * RPACK);
+  S.ocv = ocv; S.I = I; S.Vb = ocv - I * RPACK; S.Pb = Pb;
+  const k = S.charge ? TIMEK[S.charge] : 1;
+  S.soc = clamp(S.soc - I * dt * k / 3600 / (VEH.ah * VEH.np), 0, 1);
+  // temperatures (simple lumped model)
+  const T = S.temp, kt = S.charge ? k * 0.25 : 1;
+  const qPack = I * I * RPACK, qInv = (Math.abs(S.Pr) + Math.abs(S.Pf)) * 0.02 + 30, qMR = Math.abs(PmR) * (1 / VEH.R.eta - 1), qMF = Math.abs(PmF) * (1 / VEH.F.eta - 1) + (wM > 0 ? 40 : 0);
+  T.pack += (qPack - 260 * (T.pack - T.cool) + (S.charge === 'dc' && T.pack < 36 ? 3000 : 0)) / 480e3 * dt * kt;
+  T.inv += (qInv - 45 * (T.inv - T.cool)) / 4e3 * dt;
+  T.motR += (qMR - 70 * (T.motR - T.cool)) / 16e3 * dt;
+  T.motF += (qMF - 60 * (T.motF - T.cool)) / 14e3 * dt;
+  T.cool += (260 * (T.pack - T.cool) + 45 * (T.inv - T.cool) + 70 * (T.motR - T.cool) + 60 * (T.motF - T.cool) - (ready ? 420 : 60) * (T.cool - 25)) / 30e3 * dt;
+  // BMS bricks
+  const cv = ocvCell(S.soc), rb = VEH.rc / VEH.np;
+  let mx = -1e9, mn = 1e9, sum = 0;
+  for (let i = 0; i < 96; i++) { const b = cv + DEV[i] / 1000 - I * rb * (1 + RDEV[i]); brick[i] = b; sum += b; mx = Math.max(mx, b); mn = Math.min(mn, b); }
+  const mean = sum / 96; bmsDelta = (mx - mn) * 1000;
+  let dmin = Math.min(...DEV);
+  for (let i = 0; i < 96; i++) {
+    BAL[i] = ready && DEV[i] - dmin > 4 ? 1 : 0;
+    DEV[i] += (rnd() - 0.5) * dt * 0.6 - (BAL[i] ? 0.12 * dt : 0) + (DEV[i] - dmin < 1 ? 0.05 * dt : 0);
+  }
+  S.mean = mean;
+  // visual angles (slow motion)
+  const kp = S.play, wv = S.v / VEH.rw;
+  const fac = (VEH.track / 2) * Math.tan(S.steer) / VEH.wb;
+  S.wl = wv * (1 - fac); S.wr = wv * (1 + fac);
+  S.a.rL += S.wl * dt * kp; S.a.rR += S.wr * dt * kp; S.a.fL += S.wl * dt * kp; S.a.fR += S.wr * dt * kp;
+  S.a.mR = VEH.G * (S.a.rL + S.a.rR) / 2; S.a.mF = VEH.G * (S.a.fL + S.a.fR) / 2;
+  S.slipF = Tf === 0 ? 0 : Math.sign(Tf) * (0.006 + 0.03 * Math.abs(Tf) / VEH.F.T);
+  S.a.fieldF += (wM * (1 + S.slipF * 8)) * dt * kp;
+  S.a.fan += (ready ? 3 + 14 * clamp((T.cool - 27) / 10, 0, 1) : 0) * dt;
+}
+
+/* ================= renderer & scene ================= */
+const stage = $('#stage');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }); }
+catch (e) { $('#loaderTxt').textContent = 'Browser ini tidak mendukung WebGL, jadi tampilan 3D tidak bisa dibuat.'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 700 ? 1.5 : 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 80);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 0.5; controls.maxDistance = 16; controls.maxPolarAngle = Math.PI * 0.97; controls.zoomSpeed = 0.9;
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.85;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 6, 4); scene.add(sun);
+
+// ground grid that scrolls with vehicle speed
+const groundMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.renderOrder = -2; scene.add(ground);
+const shadowMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, color: 0x000000 });
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 5.5), shadowMat);
+shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.002; shadow.renderOrder = -1; scene.add(shadow);
+function canvasTex(w, h, draw, srgb = true) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; }
+function buildGround() {
+  groundMat.map?.dispose(); groundMat.alphaMap?.dispose(); shadowMat.alphaMap?.dispose();
+  const map = canvasTex(512, 512, (g, w) => {
+    g.clearRect(0, 0, w, w);
+    g.strokeStyle = rgba(C.ink, isDark() ? 0.16 : 0.12); g.lineWidth = 1;
+    for (let i = 0; i <= 8; i++) { const p = i * 64 + 0.5; g.beginPath(); g.moveTo(p, 0); g.lineTo(p, w); g.moveTo(0, p); g.lineTo(w, p); g.stroke(); }
+    g.strokeStyle = rgba(C.ink, isDark() ? 0.3 : 0.24); g.lineWidth = 2; g.strokeRect(1, 1, w - 2, w - 2);
+  });
+  map.wrapS = map.wrapT = THREE.RepeatWrapping; map.repeat.set(12, 12); map.anisotropy = 8;
+  const alpha = canvasTex(256, 256, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, '#fff'); r.addColorStop(0.45, '#888'); r.addColorStop(1, '#000'); g.fillStyle = r; g.fillRect(0, 0, w, w); }, false);
+  groundMat.map = map; groundMat.alphaMap = alpha; groundMat.needsUpdate = true;
+  shadowMat.alphaMap = canvasTex(128, 256, (g, w, h) => { const r = g.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w / 2); r.addColorStop(0, '#9a9a9a'); r.addColorStop(0.7, '#3a3a3a'); r.addColorStop(1, '#000'); g.setTransform(1, 0, 0, h / w, 0, 0); g.fillStyle = r; g.fillRect(0, 0, w, w); }, false);
+  shadowMat.opacity = isDark() ? 0.6 : 0.38; shadowMat.needsUpdate = true;
+}
+
+/* ================= materials ================= */
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, metalness: 0.5, roughness: 0.45, ...o });
+const MAT = {
+  dark: std(0x2a2d33, { metalness: 0.55, roughness: 0.42 }),
+  darker: std(0x18191c, { metalness: 0.3, roughness: 0.5 }),
+  invBase: std(0x3a3e45, { metalness: 0.7, roughness: 0.38 }),
+  alu: std(0xc3c8cf, { metalness: 0.85, roughness: 0.3 }),
+  aluD: std(0xc3c8cf, { metalness: 0.85, roughness: 0.3, side: THREE.DoubleSide }),
+  ghost: std(0xc9ced6, { metalness: 0.4, roughness: 0.25, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
+  steel: std(0x9aa0a8, { metalness: 0.9, roughness: 0.3 }),
+  gear: std(0xa8aeb6, { metalness: 0.95, roughness: 0.28 }),
+  lam: std(0x5d636c, { metalness: 0.75, roughness: 0.45 }),
+  rotor: std(0x474c54, { metalness: 0.8, roughness: 0.38 }),
+  copper: std(0xc8743a, { metalness: 1, roughness: 0.3 }),
+  magN: std(0xd8423a, { metalness: 0.2, roughness: 0.45 }),
+  magS: std(0x3b6fd6, { metalness: 0.2, roughness: 0.45 }),
+  pcb: std(0x1c6b47, { metalness: 0.1, roughness: 0.55 }),
+  chip: std(0x141518, { metalness: 0.2, roughness: 0.35 }),
+  die: std(0x9aa3b0, { metalness: 0.9, roughness: 0.2 }),
+  cap: std(0x2f3a4a, { metalness: 0.3, roughness: 0.4 }),
+  cell: std(0xffffff, { metalness: 0.55, roughness: 0.32 }),
+  rubber: std(0x16171a, { metalness: 0, roughness: 0.85 }),
+  yellow: std(0xf2b705, { metalness: 0.2, roughness: 0.4 }),
+  red: std(0xd2232a, { metalness: 0.2, roughness: 0.4 }),
+  ceramic: std(0xe9ebee, { metalness: 0, roughness: 0.6 }),
+  plug: std(0xec6a1e, { metalness: 0.1, roughness: 0.5 }),
+  coldplate: std(0x5d8fd6, { metalness: 0.6, roughness: 0.35 }),
+  radiator: std(0x8f969f, { metalness: 0.7, roughness: 0.4 }),
+  pipe: std(0x1d74dc, { metalness: 0.1, roughness: 0.3, transparent: true, opacity: 0.4, depthWrite: false }),
+  lid: std(0xb7bdc6, { metalness: 0.5, roughness: 0.3, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+  bat12: std(0x2b2e33, { metalness: 0.1, roughness: 0.6 }),
+};
+const cableMat = std(0xec6a1e, { metalness: 0.05, roughness: 0.5 });
+const busMat = std(0xc8743a, { metalness: 1, roughness: 0.3 });
+
+/* ================= component scaffolding ================= */
+const pt = new THREE.Group(); scene.add(pt);
+const cables = new THREE.Group(); scene.add(cables);
+const COMPS = {};
+function comp(id) { const c = { id, g: new THREE.Group(), mats: new Map(), ex: [] }; c.g.userData.comp = id; pt.add(c.g); COMPS[id] = c; return c; }
+function mt(c, base) { let m = c.mats.get(base); if (!m) { m = base.clone(); m.userData.o = base.opacity; m.userData.t = base.transparent; m.userData.dw = base.depthWrite; c.mats.set(base, m); } return m; }
+function add(c, geo, base, pos, parent) { const m = new THREE.Mesh(geo, mt(c, base)); if (pos) m.position.copy(pos); (parent || c.g).add(m); return m; }
+function box(c, w, h, d, base, x, y, z, parent) { return add(c, new THREE.BoxGeometry(w, h, d), base, V3(x, y, z), parent); }
+const cylX = (r, len, seg = 24) => new THREE.CylinderGeometry(r, r, len, seg).rotateZ(Math.PI / 2);
+const cylZ = (r, len, seg = 24) => new THREE.CylinderGeometry(r, r, len, seg).rotateX(Math.PI / 2);
+const curveOf = (pts, closed = false) => new THREE.CatmullRomCurve3(pts.map(p => V3(...p)), closed, 'catmullrom', 0.5);
+const tubeGeo = (curve, r, closed = false) => new THREE.TubeGeometry(curve, Math.max(24, Math.round(curve.getLength() * 70)), r, 8, closed);
+
+// spur/helical gear, axis along X; shape angle = world angle in the (z, y) plane
+function gearGeo(teeth, mod, width, { bore = 0.35, helix = 0, taper = 0 } = {}) {
+  const r = mod * teeth / 2, ra = r + mod, rf = r - 1.25 * mod, st = TAU / teeth;
+  const sh = new THREE.Shape();
+  for (let i = 0; i < teeth; i++) {
+    const a = i * st;
+    [[rf, a], [rf, a + st * 0.2], [ra, a + st * 0.38], [ra, a + st * 0.62], [rf, a + st * 0.8]].forEach(([rr, aa], k) => {
+      const x = rr * Math.cos(aa), y = rr * Math.sin(aa); if (i === 0 && k === 0) sh.moveTo(x, y); else sh.lineTo(x, y);
+    });
+  }
+  sh.closePath();
+  const hole = new THREE.Path(); hole.absarc(0, 0, r * bore, 0, TAU, true); sh.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: width, bevelEnabled: false, curveSegments: 6 });
+  g.translate(0, 0, -width / 2);
+  if (helix || taper) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const z = p.getZ(i), u = z / width; let x = p.getX(i), y = p.getY(i);
+      if (taper) { const s = 1 - taper * (u + 0.5); x *= s; y *= s; }
+      if (helix) { const a = helix * u, c = Math.cos(a), s = Math.sin(a); [x, y] = [x * c - y * s, x * s + y * c]; }
+      p.setXY(i, x, y);
+    }
+    g.computeVertexNormals();
+  }
+  g.rotateY(-Math.PI / 2);
+  return g;
+}
+function hull2(points) {
+  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+
+/* ================= layout (metres; +Z = front, +X = left, ground y = 0) ================= */
+const LY = { FZ: 1.5705, RZ: -1.2935, AY: 0.3395, WR: 0.3335, pack: { x: 0.74, z0: -0.95, z1: 1.12, y0: 0.145, y1: 0.285 } };
+const MOD = 0.0035, ZA = 17, ZB = 52, ZS = 25, ZR = 74;
+const D1 = MOD * (ZA + ZB) / 2, D2 = MOD * (ZS + ZR) / 2;
+function driveGeom(zC) {
+  const C_ = [zC, LY.AY], B = [zC - D2 * Math.cos(0.698), LY.AY + D2 * Math.sin(0.698)], A = [B[0] - D1 * Math.cos(0.5236), B[1] - D1 * Math.sin(0.5236)];
+  return { A, B, C: C_, phi1: Math.atan2(B[1] - A[1], B[0] - A[0]), phi2: Math.atan2(C_[1] - B[1], C_[0] - B[0]) };
+}
+
+/* ---------- battery pack ---------- */
+const CELL = { cols: 12, rows: 92 };
+let cells, cellXZ = [];
+function buildBattery() {
+  const c = comp('baterai'), Pk = LY.pack, W = Pk.x * 2, D = Pk.z1 - Pk.z0, cz = (Pk.z0 + Pk.z1) / 2;
+  box(c, W, 0.012, D, MAT.dark, 0, Pk.y0 + 0.006, cz);
+  box(c, W, 0.12, 0.02, MAT.dark, 0, Pk.y0 + 0.07, Pk.z0 + 0.01);
+  box(c, W, 0.12, 0.02, MAT.dark, 0, Pk.y0 + 0.07, Pk.z1 - 0.01);
+  for (const s of [-1, 1]) box(c, 0.02, 0.12, D, MAT.dark, s * (Pk.x - 0.01), Pk.y0 + 0.07, cz);
+  const inner = W - 0.06, gap = 0.02, mw = (inner - gap * 3) / 4, mz0 = Pk.z0 + 0.035, mz1 = Pk.z1 - 0.06, ml = mz1 - mz0;
+  for (let m = 1; m < 4; m++) box(c, 0.012, 0.09, D - 0.04, MAT.dark, -inner / 2 + m * (mw + gap) - gap / 2, Pk.y0 + 0.055, cz);
+  cells = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.07, 10, 1), mt(c, MAT.cell), 4416);
+  const M = new THREE.Matrix4(), col = new THREE.Color(0xd8dce2); let i = 0;
+  for (let m = 0; m < 4; m++) {
+    const x0 = -inner / 2 + m * (mw + gap);
+    for (let r = 0; r < CELL.rows; r++) for (let k = 0; k < CELL.cols; k++) {
+      const x = x0 + (k + 0.5 + (r % 2 ? 0.22 : -0.22)) * mw / CELL.cols, z = mz0 + (r + 0.5) * ml / CELL.rows;
+      M.makeTranslation(x, Pk.y0 + 0.02 + 0.035, z); cells.setMatrixAt(i, M); cells.setColorAt(i, col); cellXZ.push(x, z); i++;
+    }
+  }
+  cells.raycast = () => {}; c.g.add(cells);
+  // nickel/aluminium strips across rows
+  const strips = new THREE.InstancedMesh(new THREE.BoxGeometry(mw, 0.002, 0.006), mt(c, MAT.die), 4 * 23);
+  i = 0; for (let m = 0; m < 4; m++) for (let s = 0; s < 23; s++) { M.makeTranslation(-inner / 2 + m * (mw + gap) + mw / 2, Pk.y0 + 0.092, mz0 + (s * 4 + 2) * ml / CELL.rows); strips.setMatrixAt(i++, M); }
+  strips.raycast = () => {}; c.g.add(strips);
+  const lid = box(c, W - 0.006, 0.006, D - 0.006, MAT.lid, 0, Pk.y1 - 0.003, cz); c.ex.push({ o: lid, dy: 0.55 });
+  box(c, 0.1, 0.035, 0.03, MAT.plug, 0.22, Pk.y1 - 0.02, Pk.z0 + 0.03);
+  return { inner, mw, gap, mz0, mz1 };
+}
+/* ---------- BMS ---------- */
+function buildBMS(pk) {
+  const c = comp('bms'), Pk = LY.pack, pts = [];
+  for (let m = 0; m < 4; m++) {
+    const x = -pk.inner / 2 + m * (pk.mw + pk.gap) + pk.mw / 2;
+    box(c, pk.mw * 0.8, 0.055, 0.006, MAT.pcb, x, Pk.y0 + 0.06, pk.mz1 + 0.018);
+    box(c, 0.03, 0.012, 0.004, MAT.chip, x - 0.05, Pk.y0 + 0.065, pk.mz1 + 0.023);
+    box(c, 0.02, 0.012, 0.004, MAT.chip, x + 0.04, Pk.y0 + 0.055, pk.mz1 + 0.023);
+    pts.push([x, Pk.y0 + 0.095, pk.mz1 + 0.02]);
+  }
+  const mb = new THREE.Group(); mb.position.set(0, Pk.y1 + 0.025, 0.99); c.g.add(mb);
+  box(c, 0.32, 0.04, 0.12, MAT.dark, 0, 0, 0, mb);
+  box(c, 0.28, 0.004, 0.1, MAT.pcb, 0, 0.022, 0, mb);
+  for (let k = 0; k < 4; k++) box(c, 0.035, 0.008, 0.025, MAT.chip, -0.09 + k * 0.06, 0.028, 0.01, mb);
+  box(c, 0.06, 0.025, 0.02, MAT.darker, 0.12, 0.01, 0.07, mb);
+  c.ex.push({ o: mb, dy: 0.42 });
+  const chain = curveOf([[pts[0][0], pts[0][1], pts[0][2]], ...pts.slice(1), [0.12, Pk.y1 + 0.02, 1.06]]);
+  add(c, tubeGeo(chain, 0.003), MAT.ceramic);
+}
+/* ---------- junction box, OBC, DC-DC (rear "penthouse") ---------- */
+const JB = { z0: -0.93, z1: -0.70, y0: 0.285 };
+const LEDS = {};
+function ledMesh(parent, x, y, z) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.008, 12, 8), new THREE.MeshBasicMaterial({ toneMapped: false })); m.position.set(x, y, z); parent.add(m); return m; }
+function buildJunction() {
+  const c = comp('kontaktor'), zc = (JB.z0 + JB.z1) / 2, y = JB.y0;
+  box(c, 0.38, 0.01, 0.23, MAT.dark, 0.23, y + 0.005, zc);
+  const cover = box(c, 0.39, 0.12, 0.24, MAT.ghost, 0.23, y + 0.07, zc); c.ex.push({ o: cover, dy: 0.3 });
+  const contactor = (x, z, r, h) => { add(c, new THREE.CylinderGeometry(r, r, h, 24), MAT.darker, V3(x, y + 0.01 + h / 2, z)); for (const s of [-1, 1]) add(c, new THREE.CylinderGeometry(r * 0.25, r * 0.25, 0.018, 10), MAT.copper, V3(x + s * r * 0.45, y + 0.01 + h + 0.009, z)); };
+  contactor(0.12, -0.86, 0.028, 0.07); contactor(0.24, -0.86, 0.028, 0.07); contactor(0.35, -0.87, 0.016, 0.045);
+  LEDS.neg = ledMesh(c.g, 0.12, y + 0.1, -0.86); LEDS.pos = ledMesh(c.g, 0.24, y + 0.1, -0.86); LEDS.pre = ledMesh(c.g, 0.35, y + 0.072, -0.87);
+  box(c, 0.05, 0.02, 0.025, MAT.ceramic, 0.35, y + 0.02, -0.78);
+  const fuse = add(c, new THREE.CylinderGeometry(0.014, 0.014, 0.06, 16).rotateZ(Math.PI / 2), MAT.yellow, V3(0.18, y + 0.03, -0.75));
+  add(c, new THREE.CylinderGeometry(0.009, 0.009, 0.012, 12).rotateZ(Math.PI / 2), MAT.red, V3(0.216, y + 0.03, -0.75));
+  box(c, 0.3, 0.004, 0.018, MAT.copper, 0.24, y + 0.088, -0.815);
+  box(c, 0.07, 0.008, 0.016, MAT.copper, 0.08, y + 0.02, -0.75);
+  return fuse;
+}
+function buildOBC() {
+  const c = comp('pengisian'), zc = (JB.z0 + JB.z1) / 2, y = JB.y0, x = -0.19;
+  box(c, 0.36, 0.01, 0.23, MAT.dark, x, y + 0.005, zc);
+  const cov = new THREE.Group(); cov.position.set(x, y, zc); c.g.add(cov); c.ex.push({ o: cov, dy: 0.3 });
+  box(c, 0.37, 0.1, 0.24, MAT.ghost, 0, 0.055, 0, cov);
+  const fins = new THREE.InstancedMesh(new THREE.BoxGeometry(0.004, 0.025, 0.22), mt(c, MAT.alu), 16); const M = new THREE.Matrix4();
+  for (let i = 0; i < 16; i++) { M.makeTranslation(-0.165 + i * 0.022, 0.118, 0); fins.setMatrixAt(i, M); } cov.add(fins);
+  add(c, new THREE.TorusGeometry(0.032, 0.012, 10, 24).rotateX(Math.PI / 2), MAT.copper, V3(x - 0.1, y + 0.03, zc - 0.04));
+  box(c, 0.06, 0.05, 0.05, MAT.darker, x + 0.02, y + 0.035, zc - 0.04);
+  add(c, new THREE.TorusGeometry(0.026, 0.008, 8, 20), MAT.copper, V3(x + 0.02, y + 0.035, zc - 0.012));
+  for (let k = 0; k < 3; k++) add(c, new THREE.CylinderGeometry(0.014, 0.014, 0.05, 16), MAT.cap, V3(x + 0.1, y + 0.035, zc - 0.07 + k * 0.04));
+  box(c, 0.3, 0.004, 0.08, MAT.pcb, x, y + 0.012, zc + 0.07);
+  box(c, 0.05, 0.03, 0.03, MAT.plug, x + 0.12, y + 0.025, JB.z0 - 0.005);
+  // charge port
+  const port = new THREE.Group(); port.position.set(0.86, 0.83, -1.86); c.g.add(port);
+  add(c, cylX(0.045, 0.03, 32), MAT.darker, null, port);
+  add(c, cylX(0.034, 0.006, 32), MAT.dark, V3(0.016, 0.01, 0), port);
+  for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; add(c, cylX(0.004, 0.012, 8), MAT.die, V3(0.02, 0.012 + Math.sin(a) * 0.016, Math.cos(a) * 0.016), port); }
+  for (const s of [-1, 1]) add(c, cylX(0.009, 0.012, 12), MAT.die, V3(0.018, -0.03, s * 0.014), port);
+  add(c, cylX(0.022, 0.03, 24), MAT.darker, V3(0, -0.03, 0), port);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.047, 0.003, 8, 40).rotateY(Math.PI / 2), new THREE.MeshBasicMaterial({ toneMapped: false })); ring.position.x = 0.012; port.add(ring); LEDS.port = ring;
+  const flap = box(c, 0.006, 0.1, 0.1, MAT.dark, 0.04, 0.0, -0.075, port); flap.rotation.y = -0.9;
+}
+function buildDCDC() {
+  const c = comp('dcdc'), zc = (JB.z0 + JB.z1) / 2, y = JB.y0, x = -0.535;
+  box(c, 0.24, 0.01, 0.21, MAT.dark, x, y + 0.005, zc);
+  const cov = new THREE.Group(); cov.position.set(x, y, zc); c.g.add(cov); c.ex.push({ o: cov, dy: 0.3 });
+  box(c, 0.25, 0.085, 0.22, MAT.ghost, 0, 0.047, 0, cov);
+  const fins = new THREE.InstancedMesh(new THREE.BoxGeometry(0.004, 0.02, 0.2), mt(c, MAT.alu), 10); const M = new THREE.Matrix4();
+  for (let i = 0; i < 10; i++) { M.makeTranslation(-0.1 + i * 0.022, 0.1, 0); fins.setMatrixAt(i, M); } cov.add(fins);
+  box(c, 0.05, 0.04, 0.05, MAT.darker, x - 0.04, y + 0.03, zc);
+  add(c, new THREE.TorusGeometry(0.024, 0.007, 8, 20), MAT.copper, V3(x - 0.04, y + 0.03, zc + 0.026));
+  box(c, 0.2, 0.004, 0.07, MAT.pcb, x, y + 0.012, zc - 0.06);
+  add(c, new THREE.CylinderGeometry(0.008, 0.008, 0.02, 12), MAT.red, V3(x - 0.09, y + 0.02, JB.z1 + 0.008));
+  // 12 V battery in the front
+  const b = new THREE.Group(); b.position.set(-0.42, 0.45, 1.83); c.g.add(b); c.ex.push({ o: b, dy: 0.3 });
+  box(c, 0.16, 0.15, 0.2, MAT.bat12, 0, 0.075, 0, b);
+  box(c, 0.162, 0.012, 0.202, MAT.dark, 0, 0.152, 0, b);
+  add(c, new THREE.CylinderGeometry(0.011, 0.011, 0.02, 14), MAT.red, V3(0.05, 0.168, 0.07), b);
+  add(c, new THREE.CylinderGeometry(0.011, 0.011, 0.02, 14), MAT.darker, V3(-0.05, 0.168, 0.07), b);
+  const label = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#e9ebee'; g.font = '600 64px Barlow, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('12 V', w / 2, h / 2 + 4); });
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.05), new THREE.MeshBasicMaterial({ map: label, transparent: true, toneMapped: false })); lab.rotation.x = -Math.PI / 2; lab.position.set(0, 0.159, -0.03); b.add(lab);
+  // 12 V harness
+  const lv = curveOf([[x - 0.09, y + 0.02, JB.z1 + 0.012], [-0.66, 0.33, -0.55], [-0.72, 0.31, 0.2], [-0.7, 0.32, 1.05], [-0.56, 0.45, 1.6], [-0.37, 0.62, 1.88]]);
+  add(c, tubeGeo(lv, 0.005), MAT.ceramic).material.color.set(0x2a6e4a);
+  return lv;
+}
+/* ---------- inverter ---------- */
+function buildInverter(c, { cx, y0, cz, inFace, w = 0.34, d = 0.22, h = 0.085 }) {
+  const G = new THREE.Group(); G.position.set(cx, y0, cz); c.g.add(G);
+  box(c, w, 0.008, d, MAT.invBase, 0, 0.004, 0, G);
+  for (const s of [-1, 1]) { box(c, w, h, 0.006, MAT.invBase, 0, h / 2, s * (d / 2 - 0.003), G); box(c, 0.006, h, d, MAT.invBase, s * (w / 2 - 0.003), h / 2, 0, G); }
+  const lid = box(c, w + 0.006, 0.006, d + 0.006, MAT.ghost, 0, h + 0.003, 0, G); c.ex.push({ o: lid, dy: 0.22 });
+  const mods = [];
+  for (let k = 0; k < 3; k++) {
+    const x = (k - 1) * w * 0.28;
+    const m = box(c, 0.075, 0.016, 0.08, MAT.chip, x, 0.016, -inFace * d * 0.12, G); mods.push(m);
+    for (const s of [-1, 1]) box(c, 0.02, 0.003, 0.02, MAT.die, x + s * 0.017, 0.0255, -inFace * d * 0.12, G);
+    box(c, 0.012, 0.004, d * 0.36, MAT.copper, x, 0.03, -inFace * d * 0.28, G);
+  }
+  box(c, w * 0.8, 0.045, 0.05, MAT.cap, 0, 0.031, inFace * d * 0.3, G);
+  box(c, w * 0.8, 0.004, 0.014, MAT.copper, 0, 0.056, inFace * d * 0.16, G);
+  const pcb = new THREE.Group(); pcb.position.set(0, 0.068, -inFace * d * 0.08); G.add(pcb);
+  box(c, w * 0.86, 0.003, d * 0.32, MAT.pcb, 0, 0, 0, pcb);
+  for (let k = 0; k < 6; k++) box(c, 0.02, 0.006, 0.014, MAT.chip, (k - 2.5) * w * 0.13, 0.004, 0.01, pcb);
+  box(c, 0.06, 0.03, 0.026, MAT.plug, w * 0.22, 0.03, inFace * (d / 2 + 0.012), G);
+  return G;
+}
+/* ---------- motor (axis along X) ---------- */
+function buildMotor(c, { x0, x1, az, ay, R, type, gap }) {
+  const len = x1 - x0, cx = (x0 + x1) / 2, ts = gap + Math.PI / 4, tl = Math.PI * 1.5;
+  const H = new THREE.Group(); H.position.set(cx, ay, az); c.g.add(H);
+  add(c, new THREE.CylinderGeometry(R, R, len, 56, 1, true, ts, tl).rotateZ(Math.PI / 2), MAT.aluD, null, H);
+  for (let i = 0; i < 6; i++) add(c, new THREE.CylinderGeometry(R + 0.005, R + 0.005, 0.01, 56, 1, true, ts, tl).rotateZ(Math.PI / 2), MAT.aluD, V3(-len / 2 + 0.035 + i * (len - 0.07) / 5, 0, 0), H);
+  for (const s of [-1, 1]) add(c, new THREE.CylinderGeometry(R, R, 0.012, 56, 1, false, ts, tl).rotateZ(Math.PI / 2), MAT.aluD, V3(s * (len / 2 - 0.006), 0, 0), H);
+  // stator lamination stack with slots
+  const Ro = R - 0.008, Ri = R * 0.6, sd = R * 0.15, sl = len * 0.6, a0 = ts, a1 = ts + tl, n = 27, st = tl / n;
+  const sh = new THREE.Shape(); sh.moveTo(Ro * Math.cos(a0), Ro * Math.sin(a0)); sh.absarc(0, 0, Ro, a0, a1, false);
+  const pl = (a, r) => sh.lineTo(r * Math.cos(a), r * Math.sin(a));
+  pl(a1, Ri);
+  for (let k = n - 1; k >= 0; k--) { const b = a0 + k * st; pl(b + 0.72 * st, Ri); pl(b + 0.72 * st, Ri + sd); pl(b + 0.28 * st, Ri + sd); pl(b + 0.28 * st, Ri); pl(b, Ri); }
+  sh.closePath();
+  add(c, new THREE.ExtrudeGeometry(sh, { depth: sl, bevelEnabled: false, curveSegments: 40 }).translate(0, 0, -sl / 2).rotateY(-Math.PI / 2), MAT.lam, null, H);
+  const bars = new THREE.InstancedMesh(new THREE.BoxGeometry(sl + 0.004, sd * 0.85, st * Ri * 0.42), mt(c, MAT.copper), n);
+  const O = new THREE.Object3D();
+  for (let k = 0; k < n; k++) { const psi = a0 + (k + 0.5) * st, r = Ri + sd * 0.5; O.position.set(0, r * Math.sin(psi), r * Math.cos(psi)); O.rotation.set(Math.PI / 2 - psi, 0, 0); O.updateMatrix(); bars.setMatrixAt(k, O.matrix); }
+  H.add(bars);
+  for (const s of [-1, 1]) add(c, new THREE.TorusGeometry(Ri + sd * 0.6, sd * 0.55, 8, 48, tl).rotateZ(a0).rotateY(-Math.PI / 2), MAT.copper, V3(s * (sl / 2 + sd * 0.35), 0, 0), H);
+  // rotor
+  const rotor = new THREE.Group(); H.add(rotor);
+  const Rr = Ri - 0.004, rl = sl * 1.02;
+  add(c, cylX(Rr, rl, 40), MAT.rotor, null, rotor);
+  if (type === 'pm') {
+    for (let p = 0; p < 6; p++) { const pc = p * TAU / 6; add(c, new THREE.CylinderGeometry(Rr + 0.0018, Rr + 0.0018, rl * 0.96, 10, 1, true, pc - 0.42, 0.84).rotateZ(Math.PI / 2), p % 2 ? MAT.magS : MAT.magN, null, rotor); }
+  } else {
+    const nb = 28, cage = new THREE.InstancedMesh(cylX(0.0042, rl + 0.01, 6), mt(c, MAT.copper), nb);
+    for (let k = 0; k < nb; k++) { const a = k / nb * TAU; O.position.set(0, (Rr + 0.0006) * Math.sin(a), (Rr + 0.0006) * Math.cos(a)); O.rotation.set(0, 0, 0); O.updateMatrix(); cage.setMatrixAt(k, O.matrix); }
+    rotor.add(cage);
+    for (const s of [-1, 1]) add(c, new THREE.TorusGeometry(Rr - 0.004, 0.007, 8, 40).rotateY(Math.PI / 2), MAT.copper, V3(s * rl / 2, 0, 0), rotor);
+  }
+  add(c, cylX(0.013, len + 0.22, 16), MAT.steel, null, rotor);
+  return { H, rotor, x0, x1 };
+}
+/* ---------- gearbox + differential + half shafts ---------- */
+function bootGeo(len) {
+  const pts = []; const n = 8;
+  for (let i = 0; i <= n * 2; i++) { const t = i / (n * 2); pts.push(new THREE.Vector2(0.017 + 0.012 * (1 - t) + (i % 2 ? 0.005 : 0), -len / 2 + t * len)); }
+  return new THREE.LatheGeometry(pts, 16).rotateZ(Math.PI / 2);
+}
+function buildShaft(c, xa, xb, zC) {
+  const len = Math.abs(xb - xa), G = new THREE.Group(); G.position.set((xa + xb) / 2, LY.AY, zC); c.g.add(G);
+  const dir = Math.sign(xb - xa);
+  add(c, cylX(0.0135, len - 0.1, 14), MAT.steel, null, G);
+  const b1 = add(c, bootGeo(0.07), MAT.rubber, V3(-dir * (len / 2 - 0.05), 0, 0), G); b1.scale.x = -dir;
+  const b2 = add(c, bootGeo(0.07), MAT.rubber, V3(dir * (len / 2 - 0.05), 0, 0), G); b2.scale.x = dir;
+  add(c, cylX(0.032, 0.03, 18), MAT.steel, V3(dir * (len / 2 - 0.012), 0, 0), G);
+  add(c, new THREE.CylinderGeometry(0.03, 0.03, 0.02, 6).rotateZ(Math.PI / 2), MAT.steel, V3(-dir * (len / 2 - 0.01), 0, 0), G);
+  return G;
+}
+function buildDriveUnit({ front }) {
+  const zC = front ? LY.FZ : LY.RZ, gx = front ? -1 : 1, geo = driveGeom(zC);
+  const cM = front ? comp('motor-depan') : comp('motor-belakang');
+  const cI = front ? cM : comp('inverter');
+  const cG = front ? cM : comp('gigi-reduksi');
+  const cD = front ? cM : comp('diferensial');
+  const x0 = front ? -0.05 : -0.32, x1 = front ? 0.32 : 0.05, R = 0.115;
+  const motor = buildMotor(cM, { x0, x1, az: geo.A[0], ay: geo.A[1], R, type: front ? 'im' : 'pm', gap: front ? Math.PI / 2 + 0.55 : Math.PI / 2 - 0.55 });
+  const invZ = geo.A[0] + (front ? 0.06 : -0.06);
+  const inv = buildInverter(cI, { cx: (x0 + x1) / 2 + (front ? 0.01 : -0.01), y0: geo.A[1] + R + 0.012, cz: invZ, inFace: front ? -1 : 1 });
+  // AC busbars inverter -> motor end cap
+  const farX = front ? x1 : x0, out = front ? 1 : -1, busCurves = [];
+  for (let k = 0; k < 3; k++) {
+    const dz = (k - 1) * 0.035;
+    const cv = curveOf([[farX - out * 0.02, geo.A[1] + R + 0.018, invZ + dz], [farX + out * 0.05, geo.A[1] + R - 0.03, geo.A[0] + dz * 0.8], [farX + out * 0.014, geo.A[1] + 0.045, geo.A[0] + dz * 0.6]]);
+    add(cI, tubeGeo(cv, 0.0055), MAT.copper); busCurves.push(cv);
+  }
+  box(cM, 0.02, 0.05, 0.11, MAT.darker, farX + out * 0.012, geo.A[1] + 0.045, geo.A[0]);
+  // gears
+  const xs1 = gx * 0.095, xs2 = gx * 0.155;
+  const gA = add(cG, gearGeo(ZA, MOD, 0.028, { helix: 0.5, bore: 0.3 }), MAT.gear, V3(xs1, geo.A[1], geo.A[0]));
+  const gB = add(cG, gearGeo(ZB, MOD, 0.028, { helix: -0.17, bore: 0.25 }), MAT.gear, V3(xs1, geo.B[1], geo.B[0]));
+  const gS = add(cG, gearGeo(ZS, MOD, 0.034, { helix: -0.45, bore: 0.3 }), MAT.gear, V3(xs2, geo.B[1], geo.B[0]));
+  add(cG, cylX(0.012, 0.12, 12), MAT.steel, V3(gx * 0.125, geo.B[1], geo.B[0]));
+  // housing hull
+  const pts = []; for (const [p, r] of [[geo.A, 0.05], [geo.B, 0.105], [geo.C, 0.145]]) for (let i = 0; i < 28; i++) { const a = i / 28 * TAU; pts.push([p[0] + r * Math.cos(a), p[1] + r * Math.sin(a)]); }
+  const hp = hull2(pts), hs = new THREE.Shape(); hp.forEach(([z, y], i) => i ? hs.lineTo(z, y) : hs.moveTo(z, y)); hs.closePath();
+  const hw = 0.13, hg = new THREE.ExtrudeGeometry(hs, { depth: hw, bevelEnabled: false, curveSegments: 4 }).translate(0, 0, -hw / 2).rotateY(-Math.PI / 2);
+  add(cG, hg, MAT.ghost, V3(gx * 0.125, 0, 0));
+  // differential
+  const xd = gx * 0.11;
+  const diff = new THREE.Group(); diff.position.set(xd, LY.AY, zC); cD.g.add(diff);
+  const ring = add(cD, gearGeo(ZR, MOD, 0.034, { helix: 0.15, bore: 0.72 }), MAT.gear, V3(xs2 - xd, 0, 0), diff);
+  const prof = [[0.016, -0.065], [0.03, -0.058], [0.05, -0.04], [0.058, -0.012], [0.058, 0.012], [0.05, 0.04], [0.03, 0.058], [0.016, 0.065]].map(([r, y]) => new THREE.Vector2(r, y));
+  add(cD, new THREE.LatheGeometry(prof, 28).rotateZ(Math.PI / 2), MAT.ghost, null, diff);
+  add(cD, new THREE.CylinderGeometry(0.006, 0.006, 0.09, 10), MAT.steel, null, diff);
+  const spiders = [];
+  for (const s of [-1, 1]) { const sp = add(cD, gearGeo(10, 0.0032, 0.012, { taper: 0.45, bore: 0.3 }).rotateZ(Math.PI / 2), MAT.gear, V3(0, s * 0.03, 0), diff); spiders.push(sp); }
+  const sides = [];
+  for (const s of [-1, 1]) { const sg = add(cD, gearGeo(16, 0.0032, 0.012, { taper: 0.4, bore: 0.3 }), MAT.gear, V3(xd + s * 0.031, LY.AY, zC)); if (s > 0) sg.scale.x = -1; sides.push(sg); }
+  // half shafts
+  const cS = COMPS['poros-roda'] || comp('poros-roda');
+  const sL = buildShaft(cS, xd + 0.045, 0.69, zC), sR = buildShaft(cS, xd - 0.045, -0.69, zC);
+  return { motor, inv, gA, gB, gS, ring, diff, spiders, sides, sL, sR, geo, busCurves, invZ };
+}
+/* ---------- thermal ---------- */
+function buildThermal(pk) {
+  const c = comp('termal'), Pk = LY.pack;
+  for (let m = 0; m < 4; m++) box(c, pk.mw, 0.006, pk.mz1 - pk.mz0, MAT.coldplate, -pk.inner / 2 + m * (pk.mw + pk.gap) + pk.mw / 2, Pk.y0 + 0.016, (pk.mz0 + pk.mz1) / 2);
+  const finTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#8f969f'; g.fillRect(0, 0, w, h); g.strokeStyle = '#5c636c'; g.lineWidth = 1.5; for (let x = 0; x < w; x += 5) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, h); g.stroke(); } g.strokeStyle = '#a9b0b8'; for (let y = 0; y < h; y += 16) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(w, y + .5); g.stroke(); } });
+  const radMat = MAT.radiator.clone(); radMat.map = finTex;
+  const rad = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.34, 0.03), radMat); rad.position.set(0, 0.43, 2.07); c.g.add(rad); c.mats.set(radMat, radMat); radMat.userData.o = 1; radMat.userData.t = false; radMat.userData.dw = true;
+  for (const s of [-1, 1]) box(c, 0.04, 0.37, 0.05, MAT.dark, s * 0.4, 0.43, 2.07);
+  const fan = new THREE.Group(); fan.position.set(0, 0.43, 2.035); c.g.add(fan);
+  add(c, new THREE.TorusGeometry(0.15, 0.008, 8, 40), MAT.dark, null, fan);
+  const blades = new THREE.Group(); fan.add(blades);
+  add(c, cylZ(0.035, 0.03, 20), MAT.darker, null, blades);
+  for (let k = 0; k < 7; k++) { const b = box(c, 0.12, 0.035, 0.004, MAT.darker, 0, 0, 0, blades); b.geometry.translate(0.075, 0, 0); b.rotation.set(0.35, 0, k / 7 * TAU); }
+  const pump = new THREE.Group(); pump.position.set(0.3, 0.3, 1.93); c.g.add(pump);
+  add(c, cylX(0.032, 0.06, 20), MAT.dark, null, pump); add(c, cylX(0.026, 0.06, 20), MAT.darker, V3(-0.058, 0, 0), pump);
+  const loop = curveOf([[0.3, 0.36, 2.04], [0.31, 0.3, 1.97], [0.26, 0.42, 1.72], [0.16, 0.63, 1.5], [0.36, 0.38, 1.17], [0.69, 0.2, 1.0], [0.7, 0.2, -0.85], [0.42, 0.42, -1.12], [0.12, 0.63, -1.38], [-0.2, 0.62, -1.62], [-0.42, 0.38, -1.25], [-0.69, 0.2, -0.85], [-0.7, 0.2, 1.0], [-0.46, 0.33, 1.62], [-0.3, 0.36, 2.04]], true);
+  add(c, tubeGeo(loop, 0.011, true), MAT.pipe);
+  return { fan: blades, loop };
+}
+/* ---------- VCU + pedals ---------- */
+function buildVCU() {
+  const c = comp('vcu');
+  const b = new THREE.Group(); b.position.set(0.02, 0.7, 0.86); c.g.add(b); c.ex.push({ o: b, dy: 0.3 });
+  box(c, 0.17, 0.04, 0.12, MAT.dark, 0, 0, 0, b); box(c, 0.15, 0.004, 0.1, MAT.pcb, 0, 0.022, 0, b);
+  for (let k = 0; k < 3; k++) box(c, 0.03, 0.006, 0.025, MAT.chip, -0.045 + k * 0.045, 0.026, 0, b);
+  box(c, 0.06, 0.025, 0.02, MAT.darker, 0.05, 0, -0.07, b);
+  const pedal = (x, w, h) => { const g = new THREE.Group(); g.position.set(x, 0.6, 1.1); c.g.add(g); add(c, new THREE.CylinderGeometry(0.008, 0.008, 0.25, 8), MAT.steel, V3(0, -0.12, -0.04), g).rotation.x = -0.32; box(c, w, h, 0.012, MAT.rubber, 0, -0.24, -0.085, g).rotation.x = -0.35; return g; };
+  const acc = pedal(0.33, 0.045, 0.11), brk = pedal(0.47, 0.075, 0.07);
+  const sig = [];
+  const line = pts => { const cv = curveOf(pts); const geo = new THREE.BufferGeometry().setFromPoints(cv.getSpacedPoints(80)); const l = new THREE.Line(geo, new THREE.LineDashedMaterial({ color: 0x3b4452, dashSize: 0.02, gapSize: 0.014, transparent: true, opacity: 0.85 })); l.computeLineDistances(); c.g.add(l); sig.push(l); return cv; };
+  const cans = [
+    line([[0.33, 0.6, 1.1], [0.2, 0.68, 0.98], [0.02, 0.7, 0.92]]),
+    line([[0.02, 0.7, 0.92], [0.06, 0.66, 1.1], [0.1, 0.62, 1.32]]),
+    line([[0.02, 0.69, 0.8], [0.0, 0.36, 0.55], [0.0, 0.34, -0.55], [-0.05, 0.5, -1.25], [-0.1, 0.6, -1.42]]),
+    line([[0.0, 0.69, 0.82], [0.02, 0.4, 0.95], [0.08, 0.33, 0.99]]),
+  ];
+  return { acc, brk, cans, sig };
+}
+
+/* ================= build ================= */
+const pk = buildBattery(); buildBMS(pk);
+const fuse = buildJunction(); buildOBC(); const lvCurve = buildDCDC();
+comp('poros-roda');
+const DU_R = buildDriveUnit({ front: false });
+const DU_F = buildDriveUnit({ front: true });
+const TH = buildThermal(pk);
+const VCU = buildVCU();
+for (const c of Object.values(COMPS)) for (const e of c.ex) e.y0 = e.o.position.y;
+
+// HV cables (not selectable)
+const CAB = {};
+function cable(name, pts, r = 0.011, mat = cableMat) { const cv = curveOf(pts); const m = new THREE.Mesh(tubeGeo(cv, r), mat); cables.add(m); CAB[name] = cv; return cv; }
+cable('pack', [[0.22, 0.27, -0.92], [0.2, 0.31, -0.9], [0.13, 0.3, -0.86]], 0.008, busMat);
+cable('rear', [[0.29, 0.34, -0.93], [0.24, 0.43, -1.1], [0.12, 0.57, -1.28], [0.06, 0.53, -1.43]]);
+cable('front', [[0.38, 0.33, -0.82], [0.62, 0.3, -0.55], [0.62, 0.3, 0.95], [0.42, 0.42, 1.14], [0.09, 0.53, 1.31]]);
+cable('dcport', [[0.84, 0.81, -1.86], [0.72, 0.7, -1.74], [0.58, 0.46, -1.3], [0.44, 0.37, -0.99], [0.36, 0.32, -0.92]]);
+cable('acport', [[0.84, 0.84, -1.86], [0.56, 0.68, -1.72], [0.12, 0.52, -1.24], [-0.07, 0.31, -0.94]]);
+cable('obc', [[-0.02, 0.37, -0.73], [0.03, 0.42, -0.72], [0.08, 0.36, -0.75]], 0.008, busMat);
+cable('dcdc', [[0.06, 0.39, -0.71], [-0.18, 0.44, -0.69], [-0.44, 0.38, -0.7]], 0.007);
+
+// charging station (outside, appears while charging)
+const station = new THREE.Group(); scene.add(station); station.visible = false;
+const stMat = std(0x30343b, { metalness: 0.3, roughness: 0.5 }), stScreen = new THREE.MeshBasicMaterial({ color: 0x1d74dc, toneMapped: false });
+const stBody = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.5, 0.26), stMat); stBody.position.set(1.6, 0.75, -2.9); station.add(stBody);
+const stScr = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.14), stScreen); stScr.position.set(1.6, 1.18, -2.765); station.add(stScr);
+const stCurve = curveOf([[1.6, 0.95, -2.76], [1.5, 0.22, -2.5], [1.2, 0.3, -2.1], [0.95, 0.78, -1.87], [0.93, 0.83, -1.86]]);
+station.add(new THREE.Mesh(tubeGeo(stCurve, 0.014), std(0x16171a, { metalness: 0, roughness: 0.8 })));
+const handle = new THREE.Mesh(cylX(0.03, 0.09, 18), std(0x1b1c1f, { metalness: 0.1, roughness: 0.6 })); handle.position.set(0.93, 0.83, -1.86); station.add(handle);
+
+/* ================= energy particles ================= */
+const flowGroup = new THREE.Group(); scene.add(flowGroup);
+const pGeo = new THREE.SphereGeometry(1, 8, 6), FLOWS = [], TM = new THREE.Matrix4(), TV = new THREE.Vector3(), TC = new THREE.Color(), TC2 = new THREE.Color();
+const TYPEC = { hv: 'hv', ac: 'ac', lv: 'lv', cool: 'cool', sig: 'sig' };
+class Flow {
+  constructor(curve, type, { r = 0.009, spacing = 0.05, closed = false, grad = null } = {}) {
+    this.type = type; this.len = curve.getLength(); this.n = Math.max(3, Math.round(this.len / spacing)); this.r = r;
+    this.lut = curve.getSpacedPoints(Math.max(40, Math.round(this.len * 140))); this.grad = grad;
+    this.mat = new THREE.MeshBasicMaterial({ toneMapped: false });
+    this.mesh = new THREE.InstancedMesh(pGeo, this.mat, this.n); this.mesh.frustumCulled = false; this.mesh.raycast = () => {};
+    if (grad) for (let i = 0; i < this.n; i++) this.mesh.setColorAt(i, TC.set(0xffffff));
+    flowGroup.add(this.mesh); this.u = Math.random(); this.level = 0; this.target = 0; this.dir = 1; FLOWS.push(this); this.color();
+  }
+  set(P, scale = 120e3) { this.dir = P < 0 ? -1 : 1; this.target = Math.abs(P) < 1 ? 0 : clamp(0.18 + Math.abs(P) / scale, 0, 1); }
+  color() { this.mat.color.set(this.grad ? '#ffffff' : C[TYPEC[this.type]]); }
+  update(dt) {
+    this.level = lerp(this.level, this.target, 1 - Math.exp(-dt * 6));
+    this.u = (this.u + this.dir * (0.1 + 0.45 * this.level) * dt / this.len + 1) % 1;
+    const s = this.level < 0.01 ? 0 : this.r * (0.55 + 0.45 * this.level), N = this.lut.length - 1;
+    for (let i = 0; i < this.n; i++) {
+      const u = (i / this.n + this.u) % 1, f = u * N, k = Math.floor(f), t = f - k;
+      TV.lerpVectors(this.lut[k], this.lut[Math.min(k + 1, N)], t);
+      TM.makeScale(s, s, s); TM.setPosition(TV); this.mesh.setMatrixAt(i, TM);
+      if (this.grad) this.mesh.setColorAt(i, this.grad(u));
+    }
+    this.mesh.instanceMatrix.needsUpdate = true; if (this.grad) this.mesh.instanceColor.needsUpdate = true;
+  }
+}
+const heatAt = u => { // coolant temperature profile along the loop (0 = radiator outlet)
+  const T = S.temp, cool = T.cool - 3; let t;
+  if (u < 0.12) t = cool; else if (u < 0.25) t = lerp(cool, (cool + T.motF) / 2, (u - 0.12) / 0.13);
+  else if (u < 0.5) t = lerp((cool + T.motF) / 2, (T.cool + T.pack) / 2 + 2, (u - 0.25) / 0.25);
+  else if (u < 0.68) t = lerp((T.cool + T.pack) / 2 + 2, T.cool + (T.motR - T.cool) * 0.35 + 3, (u - 0.5) / 0.18);
+  else t = lerp(T.cool + (T.motR - T.cool) * 0.35 + 3, cool, (u - 0.68) / 0.32);
+  return TC.set(C.cool).lerp(TC2.set(C.hot), clamp((t - 22) / 22, 0, 1));
+};
+const F = {
+  pack: new Flow(CAB.pack, 'hv', { spacing: 0.035 }), rear: new Flow(CAB.rear, 'hv'), front: new Flow(CAB.front, 'hv'),
+  dcport: new Flow(CAB.dcport, 'hv'), acport: new Flow(CAB.acport, 'ac'), obc: new Flow(CAB.obc, 'hv', { spacing: 0.035 }),
+  dcdc: new Flow(CAB.dcdc, 'hv', { r: 0.007, spacing: 0.04 }), lv: new Flow(lvCurve, 'lv', { r: 0.007, spacing: 0.06 }),
+  station: new Flow(stCurve, 'hv', { r: 0.011 }),
+  cool: new Flow(TH.loop, 'cool', { r: 0.009, spacing: 0.07, grad: heatAt }),
+  acR: DU_R.busCurves.map(cv => new Flow(cv, 'ac', { r: 0.006, spacing: 0.025 })),
+  acF: DU_F.busCurves.map(cv => new Flow(cv, 'ac', { r: 0.006, spacing: 0.025 })),
+  can: VCU.cans.map(cv => new Flow(cv, 'sig', { r: 0.0045, spacing: 0.07 })),
+};
+
+/* ================= the imported car ================= */
+const carRoot = new THREE.Group(); scene.add(carRoot);
+const bodyLift = new THREE.Group(); carRoot.add(bodyLift);
+const wheelsG = new THREE.Group(); carRoot.add(wheelsG);
+const ghostShader = (base, rim) => new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Color() }, uBase: { value: base }, uRim: { value: rim } },
+  vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'uniform vec3 uColor; uniform float uBase; uniform float uRim; varying vec3 vN; varying vec3 vV; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); gl_FragColor = vec4(uColor, uBase + uRim * pow(f, 2.4)); \n#include <colorspace_fragment>\n }',
+  transparent: true, depthWrite: false, side: THREE.DoubleSide });
+const ghostBody = ghostShader(0.035, 0.55), ghostIn = ghostShader(0.012, 0.22);
+const bodyMeshes = [], doors = [], WH = { front: [], rear: [] }, hubMats = [];
+let bonnet, boot, carLoaded = false;
+function toFloatGeo(src) {
+  const g = new THREE.BufferGeometry();
+  for (const [k, a] of Object.entries(src.attributes)) {
+    const n = a.count, s = a.itemSize, arr = new Float32Array(n * s), get = [a.getX, a.getY, a.getZ, a.getW];
+    for (let i = 0; i < n; i++) for (let j = 0; j < s; j++) arr[i * s + j] = get[j].call(a, i);
+    g.setAttribute(k, new THREE.BufferAttribute(arr, s));
+  }
+  if (src.index) g.setIndex(src.index.clone());
+  return g;
+}
+function splitWheels(node, front) {
+  node.updateMatrixWorld(true);
+  const sides = { L: [], R: [] };
+  node.traverse(o => {
+    if (!o.isMesh) return;
+    const g = toFloatGeo(o.geometry).applyMatrix4(o.matrixWorld), pos = g.attributes.position.array;
+    const idx = g.index ? g.index.array : Array.from({ length: pos.length / 3 }, (_, i) => i);
+    const L = [], R = [];
+    for (let t = 0; t < idx.length; t += 3) { const a = idx[t], b = idx[t + 1], c = idx[t + 2]; ((pos[a * 3] + pos[b * 3] + pos[c * 3]) > 0 ? L : R).push(a, b, c); }
+    for (const [key, arr] of [['L', L], ['R', R]]) {
+      if (!arr.length) continue;
+      const ng = new THREE.BufferGeometry(); for (const k in g.attributes) ng.setAttribute(k, g.attributes[k]); ng.setIndex(arr);
+      sides[key].push(new THREE.Mesh(ng, o.material));
+    }
+  });
+  node.parent.remove(node);
+  for (const key of ['L', 'R']) {
+    const bb = new THREE.Box3(), v = new THREE.Vector3();
+    for (const m of sides[key]) { const p = m.geometry.attributes.position, ix = m.geometry.index.array; for (let i = 0; i < ix.length; i++) bb.expandByPoint(v.fromBufferAttribute(p, ix[i])); }
+    const ctr = bb.getCenter(new THREE.Vector3());
+    const steer = new THREE.Group(); steer.position.copy(ctr); wheelsG.add(steer);
+    const spin = new THREE.Group(); steer.add(spin);
+    for (const m of sides[key]) { m.position.copy(ctr).negate(); spin.add(m); }
+    (front ? WH.front : WH.rear).push({ side: key, steer, spin });
+  }
+}
+function setupCar(root) {
+  root.scale.setScalar(0.00894); root.rotation.y = Math.PI; root.position.y = 75.15 * 0.00894;
+  bodyLift.add(root); root.updateMatrixWorld(true);
+  const get = n => root.getObjectByName(n);
+  splitWheels(get('wheels'), true); splitWheels(get('wheels001'), false);
+  for (const n of ['hub_lf', 'hub_rf']) { const h = get(n); if (!h) continue; h.updateMatrixWorld(true); const wp = new THREE.Box3().setFromObject(h).getCenter(new THREE.Vector3()); const w = WH.front.find(x => (x.side === 'L') === (wp.x > 0)); (w ? w.steer : wheelsG).attach(h); }
+  for (const n of ['hub_lb', 'hub_rb', 'suspensi', 'suspensi2']) { const h = get(n); if (h) wheelsG.attach(h); }
+  wheelsG.traverse(o => { if (o.isMesh && /^hub/.test(o.name)) { o.material = o.material.clone(); hubMats.push(o.material); } });
+  for (const n of ['door_lf_dummy', 'door_rf_dummy', 'door_lr_dummy', 'door_rr_dummy']) { const d = get(n); if (d) { bodyLift.attach(d); doors.push({ o: d, x0: d.position.x, s: Math.sign(d.position.x) }); } }
+  bonnet = get('bonnet_dummy'); boot = get('boot_dummy');
+  if (bonnet) { bodyLift.attach(bonnet); bonnet.userData.y0 = bonnet.position.y; }
+  if (boot) { bodyLift.attach(boot); boot.userData.y0 = boot.position.y; }
+  const INTERIOR = new Set(['Putih.0', 'Carpet_Light.0', 'texture_Buttons.0', 'LCDs.0', 'mirror_inside.0', 'belt.0', 'movsteer_1.0.0', 'satin_red.0']);
+  bodyLift.traverse(o => {
+    if (!o.isMesh) return;
+    let a = o, interior = false; while (a) { if (/^(base|Seat_Leather_white|steering_dummy|dvornik_dummy)$/.test(a.name)) interior = true; a = a.parent; }
+    const mn = o.material.name || '';
+    o.userData.cat = /^glass/.test(mn) ? 'glass' : (interior || INTERIOR.has(mn)) ? 'interior' : 'body';
+    if (mn === 'chassis.0') o.visible = false;
+    o.userData.orig = o.material; o.renderOrder = 2; o.raycast = () => {}; bodyMeshes.push(o);
+  });
+  wheelsG.traverse(o => { if (o.isMesh) o.raycast = () => {}; });
+  carLoaded = true; setBody(S.body);
+}
+const loader = new GLTFLoader();
+const loadMsg = t => { $('#loaderTxt').textContent = t; };
+async function readAll(res, total) {
+  const reader = res.body?.getReader();
+  if (!reader) return new Uint8Array(await res.arrayBuffer());
+  const parts = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; const p = Math.min(0.99, got / total); $('#loaderBar').style.width = (p * 100).toFixed(0) + '%'; loadMsg('Memuat model mobil ' + fmt(p * 100) + ' %'); }
+  return new Uint8Array(await new Blob(parts).arrayBuffer());
+}
+const isGLB = b => b.length > 12 && b[0] === 0x67 && b[1] === 0x6C && b[2] === 0x54 && b[3] === 0x46; // "glTF"
+async function loadCar() {
+  // Prefer the binary car.glb; fall back to car-glb.txt (base64), used where .glb files are not served.
+  let bytes = null;
+  try { const r = await fetch('car.glb'); if (r.ok) { const b = await readAll(r, 9.05e6); if (isGLB(b)) bytes = b; } } catch (e) {}
+  if (!bytes) {
+    const r = await fetch('car-glb.txt'); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const txt = new TextDecoder().decode(await readAll(r, 12.06e6)).trim();
+    loadMsg('Menyusun model 3D'); await new Promise(res => setTimeout(res, 30));
+    if (Uint8Array.fromBase64) bytes = Uint8Array.fromBase64(txt);
+    else { const bin = atob(txt); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+  }
+  // Load embedded textures through <img> (blob: URLs) rather than fetch(), which a strict CSP may refuse.
+  const cib = window.createImageBitmap; try { window.createImageBitmap = undefined; } catch (e) {}
+  return new Promise((ok, fail) => { try { loader.parse(bytes.buffer, '', ok, fail); } finally { try { window.createImageBitmap = cib; } catch (e) {} } });
+}
+loadCar().then(g => { setupCar(g.scene); $('#loader').hidden = true; })
+  .catch(err => { console.warn(err); loadMsg('Model mobil gagal dimuat. Komponen powertrain tetap bisa dijelajahi.'); $('#loaderBar').parentElement.hidden = true; });
+
+function setBody(m) {
+  S.body = m; S.exT = m === 'urai' ? 1 : 0;
+  for (const o of bodyMeshes) {
+    if (o.userData.orig.name === 'chassis.0') continue;
+    const cat = o.userData.cat;
+    if (m === 'solid' || m === 'urai') { o.visible = true; o.material = o.userData.orig; }
+    else if (m === 'kaca') { o.visible = cat !== 'glass'; o.material = cat === 'interior' ? ghostIn : ghostBody; }
+    else o.visible = false;
+  }
+  $$('#bodies .chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.body === m));
+}
+
+/* ================= theme application ================= */
+function applyTheme() {
+  readTokens();
+  buildGround();
+  const dk = isDark();
+  ghostBody.uniforms.uColor.value.set(dk ? '#cdd5e0' : '#1b2430'); ghostBody.uniforms.uBase.value = dk ? 0.03 : 0.035; ghostBody.uniforms.uRim.value = dk ? 0.42 : 0.55;
+  ghostIn.uniforms.uColor.value.set(dk ? '#cdd5e0' : '#1b2430'); ghostIn.uniforms.uRim.value = dk ? 0.16 : 0.22;
+  cableMat.color.set(C.hv); MAT.pipe.color.set(C.cool); for (const c of Object.values(COMPS)) { const pm = c.mats.get(MAT.pipe); if (pm) pm.color.set(C.cool); }
+  for (const l of VCU.sig) l.material.color.set(C.sig);
+  for (const f of FLOWS) f.color();
+  stScreen.color.set(C.cool);
+}
+const mqDark = matchMedia('(prefers-color-scheme: dark)');
+mqDark.addEventListener?.('change', applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+applyTheme();
+
+/* ================= highlight & isolate ================= */
+const accentCol = new THREE.Color();
+function applyIsolation() {
+  for (const c of Object.values(COMPS)) {
+    const fade = S.ov.isolate && S.sel && c.id !== S.sel;
+    for (const m of c.mats.values()) {
+      const t = fade || m.userData.t; if (m.transparent !== t) { m.transparent = t; m.needsUpdate = true; }
+      m.opacity = (m.userData.o ?? 1) * (fade ? 0.08 : 1); m.depthWrite = fade ? false : m.userData.dw;
+    }
+  }
+  cables.visible = S.ov.cables && !S.ov.isolate;
+  for (const k of ['pack', 'rear', 'front', 'dcport', 'acport', 'obc', 'dcdc']) F[k].mesh.visible = !S.ov.isolate || ['kontaktor', 'baterai', 'inverter', 'pengisian', 'dcdc'].includes(S.sel);
+}
+function highlight(t) {
+  accentCol.set(C.accent);
+  for (const c of Object.values(COMPS)) {
+    const e = c.id === S.sel ? (REDUCED ? 0.18 : 0.12 + 0.08 * Math.sin(t * 3.6)) : c.id === S.hover ? 0.14 : 0;
+    for (const m of c.mats.values()) if (m.emissive) { m.emissive.copy(accentCol); m.emissiveIntensity = e; }
+  }
+}
+
+/* ================= camera ================= */
+const CAMS = { utama: [[5.6, 3.0, 6.3], [0, 0.42, 0]], samping: [[6.6, 0.95, 0], [0, 0.5, 0]], atas: [[0, 8.2, 0.35], [0, 0.2, 0]], bawah: [[1.6, -3.4, 2.4], [0, 0.3, 0]], depan: [[0.6, 1.5, 6.8], [0, 0.45, 0]] };
+let tween = null;
+function flyTo(pos, tgt, dur = 1.15) {
+  if (REDUCED) { camera.position.copy(pos); controls.target.copy(tgt); return; }
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt, s: 0, dur };
+}
+controls.addEventListener('start', () => { tween = null; $$('#cams .chip').forEach(b => b.setAttribute('aria-pressed', 'false')); });
+function setCam(k) { const [p, t] = CAMS[k]; flyTo(V3(...p).multiplyScalar(isDesk() ? 1 : 1.25), V3(...t)); $$('#cams .chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.cam === k)); }
+function focusPart(id) {
+  const v = P[id].view, t = V3(...v.t), d = V3(...v.d);
+  if (S.body === 'urai') { d.y *= 0.3; d.normalize().multiplyScalar(v.r * 1.15 * (isDesk() ? 1 : 1.35)); } else d.normalize().multiplyScalar(v.r * (isDesk() ? 1 : 1.35));
+  flyTo(t.clone().add(d), t); $$('#cams .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
+}
+camera.position.set(...CAMS.utama[0]); controls.target.set(...CAMS.utama[1]);
+
+/* ================= UI construction ================= */
+const partsEl = $('#parts');
+partsEl.innerHTML = GROUPS.map(g => `<h3 class="eyebrow">${g}</h3>` + PARTS.filter(p => p.grp === g).map(p =>
+  `<button class="part" data-id="${p.id}"><span class="dot" style="--c:var(--${p.dom})"></span><span class="nm">${p.name}</span><span class="lv" data-lv="${p.id}"></span></button>`).join('')).join('');
+const chainEl = $('#chain');
+chainEl.innerHTML = CHAIN.map(([id, name, dom], i) => (i ? `<span class="arr" data-e="${i}" style="--c:var(--${dom})">→</span>` : '') +
+  `<button class="node" data-id="${id}" style="--c:var(--${dom})"><span class="n">${i + 1}</span><span class="t">${name}</span><span class="v" data-nv="${i}">–</span></button>`).join('');
+const tagsEl = $('#tags'), svg = $('#leaders'), SVGNS = 'http://www.w3.org/2000/svg';
+const TAGS = PARTS.map(p => {
+  const el = document.createElement('button'); el.className = 'tag'; el.dataset.id = p.id; el.innerHTML = `${p.name}<small></small>`; tagsEl.append(el);
+  const g = document.createElementNS(SVGNS, 'g'); const ln = document.createElementNS(SVGNS, 'line'); const ci = document.createElementNS(SVGNS, 'circle'); ci.setAttribute('r', 2.6); g.append(ln, ci); svg.append(g);
+  return { p, el, sm: el.querySelector('small'), g, ln, ci, anchor: V3(...p.anchor) };
+});
+
+function select(id, { fly = true } = {}) {
+  if (!P[id]) return;
+  S.sel = id; const p = P[id];
+  $('#dGrp').textContent = p.grp; $('#dDom').innerHTML = `<i style="--c:var(--${p.dom})"></i>${DOM[p.dom][1]}`;
+  $('#dName').textContent = p.name; $('#dEn').textContent = p.en; $('#dRole').textContent = p.role;
+  $('#cTitle').textContent = p.chart[0]; $('#cCap').textContent = p.chart[1];
+  $('#dSteps').innerHTML = p.steps.map(s => `<li><span>${s}</span></li>`).join('');
+  $('#dSpecs').innerHTML = p.specs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('#dFact').textContent = p.fact;
+  $('#dLinks').innerHTML = p.links.map(l => `<button class="chip" data-go="${l}">${P[l].name}</button>`).join('');
+  $('#cExtra').innerHTML = EXTRA[id] ? EXTRA[id]() : '';
+  $$('.part').forEach(b => b.setAttribute('aria-current', b.dataset.id === id));
+  $$('.node').forEach(b => b.classList.toggle('sel', b.dataset.id === id));
+  $('#detail').scrollTop = 0;
+  if (fly) { if (S.body === 'solid') setBody('kaca'); focusPart(id); }
+  applyIsolation(); syncExtra();
+}
+const EXTRA = {
+  baterai: () => `<p class="eyebrow" style="margin-bottom:5px">Warna sel</p><div class="chips" id="cellModes"><button class="chip" data-cm="normal">Logam</button><button class="chip" data-cm="tegangan">Tegangan</button><button class="chip" data-cm="suhu">Suhu</button></div>`,
+  bms: () => `<div class="chips" id="cellModes"><button class="chip" data-cm="tegangan">Warnai sel: tegangan</button><button class="chip" data-cm="suhu">Warnai sel: suhu</button></div>`,
+  kontaktor: () => `<button class="btn primary" data-act="precharge">Ulangi urutan nyala</button>`,
+  diferensial: () => `<label class="rng"><span>Setir</span><output id="oSteer2">0°</output><input type="range" id="iSteer2" min="-30" max="30" value="0"></label>`,
+  pengisian: () => `<div class="chips"><button class="chip acc" data-act="ac">Isi AC 11 kW</button><button class="chip acc" data-act="dc">Isi DC cepat</button><button class="chip" data-act="unplug">Lepas kabel</button></div>`,
+  'poros-roda': () => `<div class="chips"><button class="chip acc" data-act="akselerasi">Akselerasi penuh</button><button class="chip acc" data-act="regen">Regen sampai berhenti</button></div>`,
+  'motor-depan': () => `<div class="chips"><button class="chip acc" data-act="akselerasi">Akselerasi (motor depan aktif)</button><button class="chip acc" data-act="jelajah">Jelajah (motor depan bebas)</button></div>`,
+};
+function syncExtra() {
+  $$('#cellModes .chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.cm === S.cellMode));
+  const s2 = $('#iSteer2'); if (s2) { s2.value = Math.round(S.steer * 180 / Math.PI); $('#oSteer2').textContent = s2.value + '°'; }
+  $$('#cExtra [data-act]').forEach(b => { const a = b.dataset.act; if (b.classList.contains('acc')) b.setAttribute('aria-pressed', S.scen === a); });
+}
+function refreshChips() { $$('#scen .chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === S.scen)); syncExtra(); }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-id],[data-go],[data-cm],[data-act],[data-s],[data-cam],[data-body],[data-ov]'); if (!t) return;
+  if (t.dataset.id) { goTo(t.dataset.id); }
+  else if (t.dataset.go) goTo(t.dataset.go);
+  else if (t.dataset.cm) { S.cellMode = t.dataset.cm; syncExtra(); }
+  else if (t.dataset.act) { const a = t.dataset.act; if (a === 'precharge') { S.scen = 'parkir'; S.charge = null; startPrecharge(); refreshChips(); } else if (a === 'unplug') { setScenario('parkir'); } else setScenario(a); }
+  else if (t.dataset.s) setScenario(t.dataset.s);
+  else if (t.dataset.cam) setCam(t.dataset.cam);
+  else if (t.dataset.body) { setBody(t.dataset.body); if (t.dataset.body === 'urai') flyTo(V3(6.4, 2.5, 6.6).multiplyScalar(isDesk() ? 1 : 1.25), V3(0, 0.95, 0)); }
+  else if (t.dataset.ov) { const k = t.dataset.ov; S.ov[k] = !S.ov[k]; refreshOv(); }
+});
+document.addEventListener('input', e => {
+  const id = e.target.id, v = +e.target.value;
+  if (id === 'iThr') { S.scen = 'manual'; S.thr = v / 100; if (v > 0) S.brk = 0; refreshChips(); }
+  else if (id === 'iBrk') { S.scen = 'manual'; S.brk = v / 100; if (v > 0) S.thr = 0; refreshChips(); }
+  else if (id === 'iSteer' || id === 'iSteer2') { S.steer = v * Math.PI / 180; $('#iSteer').value = v; syncExtra(); }
+  else if (id === 'iPlay') { S.play = Math.pow(10, lerp(-2.3, 0, v / 100)); }
+});
+function refreshOv() {
+  $$('#ovl .chip').forEach(b => b.setAttribute('aria-pressed', !!S.ov[b.dataset.ov]));
+  flowGroup.visible = S.ov.flows; for (const f of [F.cool]) f.mesh.visible = S.ov.cool;
+  COMPS.termal.g.children.forEach(o => { if (o.geometry?.type === 'TubeGeometry') o.visible = S.ov.cool; });
+  applyIsolation();
+}
+$('#bPause').addEventListener('click', () => { S.paused = !S.paused; $('#bPause').textContent = S.paused ? 'Lanjut' : 'Jeda'; });
+$('#bPower').addEventListener('click', () => { if (PC.phase === 'off') { startPrecharge(); S.scen = 'parkir'; refreshChips(); } else powerOff(); });
+function goTo(id) { if (location.hash.slice(1) === id) select(id); else location.hash = id; }
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (P[h]) select(h); });
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  if (e.key === 'h' || e.key === 'H') $('#app').classList.toggle('ui-off');
+  else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); $('#bPause').click(); }
+  else if (e.key === 'Escape' && S.ov.isolate) { S.ov.isolate = false; refreshOv(); }
+});
+
+/* ================= picking ================= */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let down = null, hoverDirty = false, lastPtr = null;
+function pick(cx, cy) {
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(pt.children, true);
+  for (const h of hits) { let o = h.object; while (o && !o.userData.comp) o = o.parent; if (!o) continue; if (S.ov.isolate && S.sel && o.userData.comp !== S.sel) continue; return o.userData.comp; }
+  return null;
+}
+renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => { if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 5) { const id = pick(e.clientX, e.clientY); if (id) goTo(id); } down = null; });
+renderer.domElement.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { lastPtr = [e.clientX, e.clientY]; hoverDirty = true; } });
+renderer.domElement.addEventListener('pointerleave', () => { S.hover = null; lastPtr = null; stage.classList.remove('pick'); });
+
+/* ================= resize & layout ================= */
+let W = 1, H = 1;
+function resize() {
+  const r = stage.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
+  renderer.setSize(W, H, false); camera.aspect = W / H;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (isDesk() && !$('#app').classList.contains('ui-off')) {
+    const L = $('.col-left').getBoundingClientRect().right, R = $('.col-right').getBoundingClientRect().left;
+    const dx = (L + R) / 2 - (r.left + W / 2); camera.setViewOffset(W, H, -dx, 0, W, H);
+  } else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+  sizeCanvas(chartCv); sizeCanvas(sparkCv); cachePanels();
+}
+new ResizeObserver(resize).observe(stage);
+new MutationObserver(resize).observe($('#app'), { attributes: true, attributeFilter: ['class'] });
+
+/* ================= labels ================= */
+const PV = new THREE.Vector3(), CC = new THREE.Vector3();
+const LAB = []; let PANELS = [];
+function cachePanels() { const sr = stage.getBoundingClientRect(); PANELS = isDesk() && !$('#app').classList.contains('ui-off') ? ['.col-left', '.col-right'].map(q => { const r = $(q).getBoundingClientRect(); return [r.left - sr.left, r.top - sr.top, r.right - sr.left, r.bottom - sr.top]; }) : []; }
+function updateLabels() {
+  CC.set(0, 0.45, 0).project(camera); const cx = (CC.x + 1) / 2 * W, cy = (1 - CC.y) / 2 * H;
+  const desk = isDesk(); LAB.length = 0;
+  for (const t of TAGS) {
+    const id = t.p.id, sel = id === S.sel, hov = id === S.hover;
+    let show = (S.ov.labels && desk) || sel || hov;
+    if (S.ov.isolate && !sel) show = false;
+    const c = COMPS[id]; PV.copy(t.anchor);
+    if (c.ex.length && (id === 'dcdc' || id === 'vcu' || id === 'bms')) PV.y += c.ex[c.ex.length - 1].o.position.y - c.ex[c.ex.length - 1].y0;
+    PV.project(camera);
+    if (PV.z > 1 || !show) { t.el.hidden = true; t.g.style.display = 'none'; continue; }
+    const x = (PV.x + 1) / 2 * W, y = (1 - PV.y) / 2 * H;
+    if (PANELS.some(([l, t2, r, b]) => x > l - 8 && x < r + 8 && y > t2 && y < b)) { t.el.hidden = true; t.g.style.display = 'none'; continue; }
+    let dx = x - cx, dy = y - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    const side = dx < 0 ? -1 : 1, off = sel ? 56 : 42;
+    LAB.push({ t, x, y, side, sel, hov, cap: sel || hov, lx: x + side * off * (0.55 + 0.45 * Math.abs(dx)), ly: y + dy * off * 0.7 });
+  }
+  for (const side of [-1, 1]) {
+    const L = LAB.filter(l => l.side === side).sort((a, b) => a.ly - b.ly);
+    for (let i = 1; i < L.length; i++) { const gap = (L[i - 1].cap ? 32 : 20); if (L[i].ly - L[i - 1].ly < gap) L[i].ly = L[i - 1].ly + gap; }
+    for (const l of L) { const need = l.x + l.side * 26; if (l.side > 0 ? l.lx < need : l.lx > need) l.lx = need; }
+  }
+  for (const { t, x, y, side, sel, hov, cap, lx, ly } of LAB) {
+    t.el.hidden = false; t.g.style.display = '';
+    t.el.classList.toggle('sel', sel); t.el.classList.toggle('hov', hov); t.el.classList.toggle('r', side < 0); t.el.classList.toggle('cap', cap);
+    t.el.style.transform = `translate(${lx.toFixed(1)}px,${ly.toFixed(1)}px) translate(${side < 0 ? '-100%' : '0'},-50%)`;
+    t.g.classList.toggle('sel', sel);
+    t.ln.setAttribute('x1', x); t.ln.setAttribute('y1', y); t.ln.setAttribute('x2', lx); t.ln.setAttribute('y2', ly);
+    t.ci.setAttribute('cx', x); t.ci.setAttribute('cy', y);
+  }
+}
+
+/* ================= live values ================= */
+const kmh = () => S.v * 3.6;
+const feR = () => S.rpm / 60 * VEH.R.pp;
+const iph = T => Math.abs(T) < 0.5 ? 0 : 40 + Math.abs(T) * 1.9;
+const LIVE = {
+  baterai: () => `${fmt(S.soc * 100, 1)} % · ${fmt(S.Vb)} V`,
+  bms: () => `Δ ${fmt(bmsDelta)} mV`,
+  kontaktor: () => PC.phase === 'ready' ? 'tertutup' : PC.phase === 'off' ? 'terbuka' : 'pra-isi',
+  pengisian: () => S.charge ? `${fmt(S.Pch / 1000, 1)} kW ${S.charge.toUpperCase()}` : 'tidak mengisi',
+  dcdc: () => `${fmt(S.aux)} W`,
+  inverter: () => `${fmt(feR())} Hz · ${fmt(iph(S.Tr))} A`,
+  'motor-belakang': () => `${fmt(S.rpm)} rpm · ${fmt(S.Tr)} Nm`,
+  'gigi-reduksi': () => `${fmt(S.Tr * VEH.G * VEH.eta)} Nm roda`,
+  diferensial: () => `Δ ${fmt(Math.abs(S.wl - S.wr) * 60 / TAU)} rpm`,
+  'poros-roda': () => `${fmt(kmh())} km/j`,
+  'motor-depan': () => S.Tf !== 0 ? `${fmt(S.Tf)} Nm` : 'berputar bebas',
+  vcu: () => `pedal ${fmt(S.thr * 100)} %`,
+  termal: () => `${fmt(S.temp.cool)} °C cairan`,
+};
+function chainState() {
+  const drive = S.Pr > 50 || S.Pf > 50, regen = S.Pr < -50, ch = !!S.charge && S.Pch > 0;
+  const on = new Set(), rev = new Set();
+  let mode = 'mobil diam, hanya beban 12 V';
+  if (PC.phase === 'off') mode = 'mati: kontaktor terbuka';
+  else if (PC.phase === 'seq') mode = 'pra-isi kapasitor inverter';
+  else if (ch) { [1, 2].forEach(i => on.add(i)); mode = S.charge === 'ac' ? 'mengisi AC: listrik rumah → OBC → baterai' : 'mengisi DC cepat: charger → baterai'; }
+  else if (drive) { [3, 4, 5, 6, 7].forEach(i => on.add(i)); mode = 'berkendara: baterai → roda'; }
+  else if (regen) { [3, 4, 5, 6, 7].forEach(i => { on.add(i); rev.add(i); }); mode = 'regeneratif: roda → baterai'; }
+  return { on, rev, mode };
+}
+const NODEV = [
+  () => S.charge ? fmt(S.Pch / 1000, 1) + ' kW' : '–',
+  () => PC.phase === 'ready' ? 'tutup' : PC.phase === 'off' ? 'buka' : 'pra-isi',
+  () => fmt(S.Pb / 1000, 1) + ' kW',
+  () => fmt(feR()) + ' Hz',
+  () => fmt(S.rpm) + ' rpm',
+  () => fmt(S.Tr * VEH.G * VEH.eta) + ' Nm',
+  () => 'Δ ' + fmt(Math.abs(S.wl - S.wr) * 60 / TAU) + ' rpm',
+  () => fmt(kmh()) + ' km/j',
+];
+const SCENTXT = { parkir: 'parkir', akselerasi: '0 → 100 km/j', jelajah: 'tahan kecepatan', regen: 'regen sampai berhenti', ac: 'waktu dipercepat 240×', dc: 'waktu dipercepat 30×', manual: 'manual: geser pedal' };
+function updateReadouts() {
+  const kw = S.Pb / 1000;
+  const big = $('#bigP'); big.firstChild.nodeValue = fmt(kw, Math.abs(kw) < 10 ? 1 : 0); big.classList.toggle('neg', kw < 0);
+  const f = $('#pbarFill'), z = 25, pos = clamp(z + kw / 400 * 100, 0, 100);
+  f.style.left = Math.min(z, pos) + '%'; f.style.width = Math.abs(pos - z) + '%'; f.classList.toggle('neg', kw < 0);
+  $('#pLabel').textContent = 'Daya baterai · ' + (kw > 0.05 ? (S.limited ? 'dibatasi BMS' : 'mengosongkan') : kw < -0.05 ? (S.charge ? 'diisi charger' : 'diisi regen') : 'diam');
+  $('#sV').textContent = fmt(kmh()); $('#sRpm').textContent = fmt(S.rpm); $('#sSoc').textContent = fmt(S.soc * 100, 1);
+  $('#sVb').textContent = fmt(S.Vb); $('#sI').textContent = fmt(S.I); $('#sT').textContent = fmt(S.temp.pack, 1);
+  for (const el of $$('[data-lv]')) el.textContent = LIVE[el.dataset.lv]();
+  for (const t of TAGS) if (!t.el.hidden) t.sm.textContent = LIVE[t.p.id]();
+  const cs = chainState();
+  $$('.node').forEach((n, i) => n.classList.toggle('on', cs.on.has(i) || cs.on.has(i + 1)));
+  $$('.arr').forEach(a => { const i = +a.dataset.e; a.classList.toggle('on', cs.on.has(i)); a.classList.toggle('rev', cs.rev.has(i)); });
+  $$('[data-nv]').forEach(el => el.textContent = NODEV[+el.dataset.nv]());
+  $('#flowMode').textContent = cs.mode;
+  $('#scenTxt').textContent = SCENTXT[S.scen] || '';
+  if (document.activeElement?.id !== 'iThr') { $('#iThr').value = Math.round(S.thr * 100); }
+  if (document.activeElement?.id !== 'iBrk') { $('#iBrk').value = Math.round(S.brk * 100); }
+  $('#oThr').textContent = fmt(S.thr * 100) + ' %'; $('#oBrk').textContent = fmt(S.brk * 100) + ' %';
+  $('#oSteer').textContent = fmt(S.steer * 180 / Math.PI) + '°';
+  $('#oPlay').textContent = S.play >= 0.995 ? 'nyata' : '1/' + fmt(1 / S.play);
+  $('#bPower').textContent = PC.phase === 'off' ? 'Nyalakan' : 'Matikan';
+}
+
+/* ================= charts ================= */
+const chartCv = $('#chart'), cg = chartCv.getContext('2d'), sparkCv = $('#spark'), sg = sparkCv.getContext('2d');
+function sizeCanvas(cv) { const d = Math.min(devicePixelRatio, 2), w = cv.clientWidth, h = cv.clientHeight; if (w && (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d))) { cv.width = Math.round(w * d); cv.height = Math.round(h * d); } }
+function prep(cv, g) { const d = cv.width / Math.max(1, cv.clientWidth); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, cv.clientWidth, cv.clientHeight); return [cv.clientWidth, cv.clientHeight]; }
+function txt(g, s, x, y, { al = 'left', bl = 'alphabetic', c = C['ink-3'], f = '10px ' + MONO } = {}) { g.fillStyle = c; g.font = f; g.textAlign = al; g.textBaseline = bl; g.fillText(s, x, y); }
+function hl(g, x0, x1, y, c = C.line, dash) { g.strokeStyle = c; g.lineWidth = 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(x0, Math.round(y) + .5); g.lineTo(x1, Math.round(y) + .5); g.stroke(); g.setLineDash([]); }
+function vl(g, x, y0, y1, c = C.line, dash) { g.strokeStyle = c; g.lineWidth = 1; g.setLineDash(dash || []); g.beginPath(); g.moveTo(Math.round(x) + .5, y0); g.lineTo(Math.round(x) + .5, y1); g.stroke(); g.setLineDash([]); }
+function poly(g, n, fx, fy, c, w = 1.6) { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); for (let i = 0; i <= n; i++) { const x = fx(i / n), y = fy(i / n); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+function dot(g, x, y, c = C.accent, r = 4) { g.fillStyle = C['panel-solid']; g.beginPath(); g.arc(x, y, r + 2, 0, TAU); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+const CHARTS = {
+  baterai(g, w, h) {
+    const L = 34, R = w - 8, T = 14, B = h - 18, X = s => L + s * (R - L), Y = v => B - (v - 280) / 130 * (B - T);
+    g.fillStyle = rgba(C.lv, 0.09); g.fillRect(X(0.2), T, X(0.8) - X(0.2), B - T); txt(g, 'zona nyaman 20–80 %', X(0.5), T + 10, { al: 'center', c: C.lv });
+    for (const v of [300, 350, 400]) { hl(g, L, R, Y(v)); txt(g, v, L - 4, Y(v) + 3, { al: 'right' }); }
+    for (const s of [0, 0.2, 0.4, 0.6, 0.8, 1]) txt(g, fmt(s * 100), X(s), h - 4, { al: 'center' });
+    txt(g, 'V', L - 4, T - 3, { al: 'right' }); txt(g, 'SOC %', R, B - 6, { al: 'right' });
+    poly(g, 60, s => X(s), s => Y(VEH.ns * ocvCell(s)), C.ink, 1.6);
+    const x = X(S.soc); vl(g, x, Y(S.ocv), Y(S.Vb), C.accent); dot(g, x, Y(S.Vb));
+    $('#cMeta').textContent = `OCV ${fmt(S.ocv)} V · beban ${fmt(S.Vb)} V`;
+  },
+  bms(g, w, h) {
+    const L = 30, R = w - 4, T = 10, B = h - 18, mid = (T + B) / 2, sc = (B - T) / 2 / 20, bw = (R - L) / 96;
+    for (const v of [-20, -10, 0, 10, 20]) { hl(g, L, R, mid - v * sc, v ? C.line : C['ink-3']); txt(g, (v > 0 ? '+' : '') + v, L - 4, mid - v * sc + 3, { al: 'right' }); }
+    for (let i = 0; i < 96; i++) { const d = clamp((brick[i] - S.mean) * 1000, -20, 20); g.fillStyle = BAL[i] ? C.accent : C['ink-3']; const y = mid - d * sc; g.fillRect(L + i * bw + 0.5, Math.min(y, mid), Math.max(1, bw - 1), Math.abs(y - mid) || 1); }
+    for (const k of [1, 24, 48, 72, 96]) txt(g, k, L + (k - 0.5) * bw, h - 4, { al: 'center' });
+    txt(g, 'mV', L - 4, T - 2, { al: 'right' });
+    const mx = Math.max(...brick), mn = Math.min(...brick);
+    $('#cMeta').textContent = `${fmt(mn, 3)}–${fmt(mx, 3)} V · Δ ${fmt(bmsDelta)} mV`;
+  },
+  kontaktor(g, w, h) {
+    const L = 46, R = w - 8, T = 10, B = h * 0.52, X = t => L + t / 1.8 * (R - L), Y = v => B - v * (B - T);
+    for (const v of [0, 0.5, 0.95, 1]) { hl(g, L, R, Y(v), v === 0.95 ? C.accent : C.line, v === 0.95 ? [3, 3] : null); }
+    txt(g, '100 %', L - 4, Y(1) + 3, { al: 'right' }); txt(g, '95 %', L - 4, Y(0.95) + 12, { al: 'right', c: C.accent }); txt(g, '0', L - 4, Y(0) + 3, { al: 'right' });
+    const tNow = PC.phase === 'seq' ? PC.t : PC.phase === 'ready' ? 1.8 : 0;
+    poly(g, 120, u => X(u * 1.8), u => { const t = u * 1.8; return Y(t < PCT.pre ? 0 : t >= PCT.main ? 1 : 1 - Math.exp(-(t - PCT.pre) / PCT.tau)); }, rgba(C.ink, 0.25), 1.2);
+    if (PC.phase !== 'off') poly(g, 120, u => X(u * Math.min(tNow, 1.8)), u => { const t = u * Math.min(tNow, 1.8); return Y(t < PCT.pre ? 0 : t >= PCT.main ? 1 : 1 - Math.exp(-(t - PCT.pre) / PCT.tau)); }, C.ink, 1.8);
+    const rows = [['NEG −', t => t >= PCT.neg], ['PRA-ISI', t => t >= PCT.pre && t < PCT.open], ['POS +', t => t >= PCT.main]];
+    rows.forEach(([nm, f], i) => {
+      const y0 = B + 16 + i * 17; txt(g, nm, L - 4, y0 + 4, { al: 'right' }); hl(g, L, R, y0 + 6, C.line);
+      g.strokeStyle = PC.phase === 'off' ? C['ink-3'] : (i === 1 ? C.hv : C.lv); g.lineWidth = 2; g.beginPath();
+      for (let k = 0; k <= 180; k++) { const t = k / 100; const on = PC.phase !== 'off' && t <= tNow + 1e-6 && f(t); const yy = on ? y0 - 3 : y0 + 6; k ? g.lineTo(X(t), yy) : g.moveTo(X(t), yy); if (t > tNow) break; }
+      g.stroke();
+    });
+    if (PC.phase === 'seq') vl(g, X(PC.t), T, h - 4, C.accent);
+    txt(g, '0', L, h - 1, { al: 'center' }); txt(g, '1,8 s', R, h - 1, { al: 'right' });
+    $('#cMeta').textContent = PC.phase === 'ready' ? 'SIAP · kontaktor utama tertutup' : PC.phase === 'off' ? 'MATI · semua terbuka' : `pra-isi ${fmt(pcState(PC.t).v * 100)} %`;
+  },
+  inverter(g, w, h) {
+    const L = 8, R = w - 8, T = 8, B = h * 0.62, mid = (T + B) / 2, amp = iph(S.Tr), full = Math.max(150, Math.ceil(amp * 1.15 / 50) * 50), sc = (B - T) / 2 / full;
+    hl(g, L, R, mid, C['ink-3']); hl(g, L, R, T, C.line, [2, 3]); hl(g, L, R, B, C.line, [2, 3]);
+    const ph = S.a.mR * VEH.R.pp, sgn = S.Tr < 0 ? -1 : 1, cols = [C.accent, C.ink, C.ac];
+    [0, -TAU / 3, TAU / 3].forEach((o, k) => poly(g, 160, u => L + u * (R - L), u => mid - sgn * amp * Math.sin(ph + u * 2 * TAU + o) * sc, cols[k], 1.6));
+    txt(g, '±' + fmt(full) + ' A', L, T + 10); txt(g, 'U', R - 26, T + 10, { c: cols[0], f: '600 10px ' + MONO }); txt(g, 'V', R - 17, T + 10, { c: cols[1], f: '600 10px ' + MONO }); txt(g, 'W', R - 8, T + 10, { c: cols[2], f: '600 10px ' + MONO });
+    const y0 = B + 14, y1 = h - 6, m = clamp(0.15 + S.rpm / 14000, 0.15, 0.95) * (amp > 0 ? 1 : 0), N = 24;
+    txt(g, 'GATE U', L, y0 - 4, { f: '600 9px ' + MONO });
+    g.strokeStyle = C.accent; g.lineWidth = 1.3; g.beginPath(); let prev = null;
+    for (let i = 0; i <= 480; i++) { const u = i / 480, ref = 0.5 + 0.5 * m * Math.sin(ph + u * 2 * TAU) * sgn, tri = Math.abs(((u * N) % 1) * 2 - 1), on = ref > tri; const x = L + u * (R - L), y = on ? y0 + 2 : y1; if (prev === null) g.moveTo(x, y); else if (prev !== on) { g.lineTo(x, prev ? y0 + 2 : y1); g.lineTo(x, y); } else g.lineTo(x, y); prev = on; }
+    g.stroke();
+    $('#cMeta').textContent = `f ${fmt(feR())} Hz · ${fmt(amp)} A puncak`;
+  },
+  'motor-belakang'(g, w, h) { motorChart(g, w, h, false); },
+  'motor-depan'(g, w, h) { motorChart(g, w, h, true); },
+  'gigi-reduksi'(g, w, h) {
+    const L = 64, R = w - 10, rows = [['Motor', S.rpm, S.Tr], ['Roda', S.rpm / VEH.G, S.Tr * VEH.G * VEH.eta]];
+    const half = (R - L - 14) / 2, xr = L, xt = L + half + 14;
+    txt(g, 'PUTARAN · rpm', xr, 12, { f: '600 9.5px ' + MONO, c: C['ink-2'] }); txt(g, 'TORSI · Nm', xt, 12, { f: '600 9.5px ' + MONO, c: C['ink-2'] });
+    rows.forEach(([nm, rpm, T], i) => {
+      const y = 34 + i * 54;
+      txt(g, nm, L - 8, y + 12, { al: 'right', c: C.ink, f: '500 12px ' + MONO });
+      g.fillStyle = C.line; g.fillRect(xr, y, half, 14); g.fillRect(xt, y, half, 14);
+      g.fillStyle = i ? C.mech : C.ac; g.fillRect(xr, y, half * clamp(rpm / 18000, 0, 1), 14);
+      g.fillStyle = T < 0 ? C.lv : C.accent; g.fillRect(xt, y, half * clamp(Math.abs(T) / 4000, 0, 1), 14);
+      txt(g, fmt(rpm), xr, y + 28, { c: C.ink }); txt(g, fmt(T), xt, y + 28, { c: C.ink });
+    });
+    txt(g, '÷ 9,05', xr + half, 74, { al: 'right', c: C.accent, f: '600 11px ' + MONO }); txt(g, '× 9,05', xt + half, 74, { al: 'right', c: C.accent, f: '600 11px ' + MONO });
+    txt(g, 'skala: 18.000 rpm · 4.000 Nm', R, h - 4, { al: 'right' });
+    $('#cMeta').textContent = `${fmt(Math.abs(S.Tr * S.rpm * TAU / 60) / 1000, 1)} kW lewat`;
+  },
+  diferensial(g, w, h) {
+    const cx = w / 2, ay = h - 26, tw = Math.min(w * 0.5, 170), xl = cx - tw / 2, xr = cx + tw / 2;
+    const R = Math.abs(S.steer) > 1e-3 ? VEH.wb / Math.tan(Math.abs(S.steer)) : Infinity, dir = Math.sign(S.steer);
+    const sc = tw / VEH.track, len = 90;
+    const path = (x0, wv) => { const dist = len * (S.v > 0.1 ? wv / (S.v / VEH.rw) : 1); g.strokeStyle = C.accent; g.lineWidth = 2; g.beginPath();
+      if (!isFinite(R)) { g.moveTo(x0, ay); g.lineTo(x0, ay - dist); } else { const ccx = cx - dir * R * sc, r = Math.abs(x0 - ccx), a0 = Math.atan2(0, x0 - ccx), da = dist / r * -dir * (x0 > ccx ? 1 : -1); g.arc(ccx, ay, r, x0 > ccx ? 0 : Math.PI, (x0 > ccx ? 0 : Math.PI) + (dir > 0 ? -1 : 1) * dist / r, dir > 0); } g.stroke(); };
+    hl(g, xl, xr, ay, C.ink); g.fillStyle = C.ink; g.fillRect(cx - 9, ay - 9, 18, 18);
+    for (const [x, wv, nm] of [[xl, S.wr, 'kanan'], [xr, S.wl, 'kiri']]) { path(x, wv); g.fillStyle = C.ink; g.fillRect(x - 5, ay - 14, 10, 28); txt(g, `${nm} ${fmt(wv * 60 / TAU)} rpm`, x, h - 3, { al: 'center', c: C.ink }); }
+    txt(g, isFinite(R) ? `jari-jari belok ${fmt(R, 1)} m` : 'jalan lurus', cx, 12, { al: 'center', c: C['ink-2'] });
+    $('#cMeta').textContent = `satelit ${fmt(Math.abs(S.wl - S.wr) / 2 * 60 / TAU * 1.6)} rpm`;
+  },
+  'poros-roda'(g, w, h) {
+    const L = 30, R = w - 8, T = 10, B = h - 18, X = v => L + v / 250 * (R - L), Y = f => B - f / 14000 * (B - T);
+    for (const f of [0, 5000, 10000]) { hl(g, L, R, Y(f)); txt(g, fmt(f / 1000) + 'k', L - 4, Y(f) + 3, { al: 'right' }); }
+    for (const v of [0, 50, 100, 150, 200]) txt(g, v, X(v), h - 4, { al: 'center' }); txt(g, '250 km/j', R, h - 4, { al: 'right' });
+    txt(g, 'N', L - 4, T - 1, { al: 'right' });
+    const Fmax = v => { const wM = v / 3.6 / VEH.rw * VEH.G; return (avail(VEH.R, wM) + avail(VEH.F, wM)) * VEH.G * VEH.eta / VEH.rw; };
+    const Fr = v => 0.5 * VEH.rho * VEH.cda * (v / 3.6) ** 2 + VEH.crr * VEH.m * VEH.g;
+    poly(g, 100, u => X(u * 250), u => Y(Fmax(u * 250)), C.accent, 1.8); poly(g, 100, u => X(u * 250), u => Y(Fr(u * 250)), C.ink, 1.6);
+    let vt = 0; for (let v = 100; v < 400; v += 0.5) if (Fr(v) >= Fmax(v)) { vt = v; break; }
+    if (vt && vt <= 250) { vl(g, X(vt), Y(Fr(vt)), B, C['ink-3'], [2, 3]); txt(g, 'v maks', X(vt) - 3, Y(Fr(vt)) - 6, { al: 'right' }); }
+    dot(g, X(kmh()), Y(Math.max(0, S.Fd)));
+    $('#cMeta').textContent = `dorong ${fmt(S.Fd)} N · hambat ${fmt(S.Fres)} N`;
+  },
+  pengisian(g, w, h) {
+    const L = 32, R = w - 8, T = 10, B = h - 18, X = s => L + s * (R - L), Y = p => B - p / 180e3 * (B - T);
+    for (const p of [0, 50e3, 100e3, 150e3]) { hl(g, L, R, Y(p)); txt(g, fmt(p / 1000), L - 4, Y(p) + 3, { al: 'right' }); }
+    for (const s of [0, 0.2, 0.4, 0.6, 0.8, 1]) txt(g, fmt(s * 100), X(s), h - 4, { al: 'center' });
+    txt(g, 'kW', L - 4, T - 1, { al: 'right' }); txt(g, 'SOC %', R, T + 8, { al: 'right' });
+    poly(g, 100, u => X(u), u => Y(dcCurve(u)), C.hv, 2); poly(g, 100, u => X(u), u => Y(acCurve(u)), C.ac, 1.4);
+    txt(g, 'DC cepat', X(0.33), Y(170e3) - 5, { c: C.hv }); txt(g, 'AC 11 kW', X(0.02), Y(11e3) - 5, { c: C.ac });
+    vl(g, X(S.soc), T, B, C['ink-3'], [2, 3]);
+    if (S.charge) dot(g, X(S.soc), Y(S.Pch));
+    $('#cMeta').textContent = S.charge ? `${fmt(S.Pch / 1000, 1)} kW · ${fmt(S.I)} A` : `DC 10→80 %: ± ${fmt(T1080 / 60)} mnt`;
+  },
+  dcdc(g, w, h) {
+    const loads = [['Unit kendali & layar', 230], ['Pompa pendingin', 110], ['Kipas & blower', 120 + (S.aux > 600 ? 260 : 0)], ['Lampu', 60], ['Mengisi aki 12 V', 40]];
+    const tot = PC.phase === 'off' ? 0 : loads.reduce((a, b) => a + b[1], 0), mx = 420, L = 116, R = w - 44;
+    loads.forEach(([nm, p], i) => { const y = 8 + i * 21; txt(g, nm, L - 8, y + 10, { al: 'right', c: C['ink-2'], f: '11px ' + MONO.replace(/"IBM Plex Mono", /, '') }); g.fillStyle = C.line; g.fillRect(L, y, R - L, 12); g.fillStyle = C.lv; g.fillRect(L, y, (R - L) * (PC.phase === 'off' ? 0 : p / mx), 12); txt(g, fmt(PC.phase === 'off' ? 0 : p) + ' W', R + 4, y + 10, { c: C.ink }); });
+    const y = h - 26; hl(g, 8, w - 8, y - 6);
+    txt(g, `14 V: ${fmt(tot / 14)} A`, 8, y + 10, { c: C.lv, f: '600 12px ' + MONO }); txt(g, `${fmt(S.Vb)} V: ${fmt(tot / Math.max(S.Vb, 1) / 0.95, 1)} A`, w - 8, y + 10, { al: 'right', c: C.hv, f: '600 12px ' + MONO });
+    $('#cMeta').textContent = `total ${fmt(tot)} W`;
+  },
+  termal(g, w, h) {
+    const T = S.temp, rows = [['Baterai', T.pack, 20, 40], ['Inverter', T.inv, 25, 65], ['Motor B', T.motR, 25, 90], ['Motor D', T.motF, 25, 90], ['Cairan', T.cool, 20, 40]];
+    const L = 64, R = w - 40, X = t => L + (t - 0) / 100 * (R - L);
+    rows.forEach(([nm, t, a, b], i) => { const y = 8 + i * 24; txt(g, nm, L - 8, y + 10, { al: 'right', c: C['ink-2'] }); g.fillStyle = C.line; g.fillRect(L, y + 4, R - L, 4); g.fillStyle = rgba(C.lv, 0.35); g.fillRect(X(a), y, X(b) - X(a), 12); g.fillStyle = t > b ? C.hot : C.ink; g.fillRect(X(t) - 1.5, y - 2, 3, 16); txt(g, fmt(t, 1) + '°', R + 4, y + 10, { c: C.ink }); });
+    for (const t of [0, 25, 50, 75, 100]) txt(g, t, X(t), h - 4, { al: 'center' });
+    $('#cMeta').textContent = `pompa ${PC.phase === 'off' ? 0 : fmt(8 + 10 * clamp((T.cool - 26) / 10, 0, 1))} L/mnt`;
+  },
+  vcu(g, w, h) {
+    const L = 30, R = w * 0.48, T = 10, B = h - 18, X = p => L + p * (R - L), Y = t => B - (t + 0.25) / 1.25 * (B - T);
+    hl(g, L, R, Y(0), C['ink-3']); hl(g, L, R, Y(1)); txt(g, '100', L - 4, Y(1) + 3, { al: 'right' }); txt(g, '0', L - 4, Y(0) + 3, { al: 'right' }); txt(g, 'regen', L - 4, Y(-0.2) + 3, { al: 'right', c: C.lv });
+    poly(g, 60, u => X(u), u => Y(u === 0 ? -0.18 : Math.pow(u, 1.35) * (1 - 0.18 * (1 - u)) - 0.18 * (1 - u) ** 6), C.ink, 1.6);
+    txt(g, '0', X(0), h - 4, { al: 'center' }); txt(g, '100 % pedal', R, h - 4, { al: 'right' });
+    const tq = S.thr > 0 ? (S.Tr + S.Tf) / (VEH.R.T + VEH.F.T) : (S.Tr / VEH.R.T); dot(g, X(S.thr), Y(clamp(tq, -0.25, 1)));
+    const x0 = w * 0.54; txt(g, 'ID    ISI', x0, 12, { c: C['ink-2'], f: '600 9.5px ' + MONO });
+    S.can.slice(-8).forEach((m, i) => txt(g, m, x0, 28 + i * 17, { c: i === Math.min(7, S.can.length - 1) ? C.ink : C['ink-3'], f: '10px ' + MONO }));
+    $('#cMeta').textContent = `perintah ${fmt(S.Tr + S.Tf)} Nm`;
+  },
+};
+function motorChart(g, w, h, im) {
+  const u = im ? VEH.F : VEH.R, T = im ? S.Tf : S.Tr, d = Math.min(h - 8, w * 0.4), cx = d / 2 + 4, cy = h / 2, ro = d / 2 - 2, ri = ro * 0.62;
+  const rot = im ? S.a.mF : S.a.mR, pp = u.pp;
+  const load = clamp(T / u.T, -1, 1) * 0.6;
+  const field = im ? S.a.fieldF : rot + load / pp;
+  const slots = 24, amp = Math.abs(T) > 0.5 ? 1 : 0;
+  g.strokeStyle = C.line; g.lineWidth = 1; g.beginPath(); g.arc(cx, cy, ro, 0, TAU); g.stroke(); g.beginPath(); g.arc(cx, cy, ri + 6, 0, TAU); g.stroke();
+  for (let k = 0; k < slots; k++) {
+    const a = k / slots * TAU, cur = Math.cos(pp * (a - field)) * amp;
+    g.fillStyle = cur > 0.15 ? rgba(C.accent, 0.25 + 0.75 * cur) : cur < -0.15 ? rgba(C.cool, 0.25 - 0.75 * cur) : C.line;
+    g.save(); g.translate(cx + Math.cos(a) * (ri + 13), cy - Math.sin(a) * (ri + 13)); g.rotate(-a); g.fillRect(-4, -2.5, 8, 5); g.restore();
+  }
+  if (im) {
+    g.fillStyle = rgba(C.ink, 0.12); g.beginPath(); g.arc(cx, cy, ri, 0, TAU); g.fill();
+    for (let k = 0; k < 16; k++) { const a = rot + k / 16 * TAU; g.fillStyle = k === 0 ? C.ink : C.mech; g.beginPath(); g.arc(cx + Math.cos(a) * (ri - 6), cy - Math.sin(a) * (ri - 6), k === 0 ? 3.4 : 2.3, 0, TAU); g.fill(); }
+  } else {
+    for (let p = 0; p < 2 * pp; p++) { const a0 = rot + p * TAU / (2 * pp); g.fillStyle = p % 2 ? rgba(C.cool, 0.8) : rgba(C.accent, 0.8); g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, ri, -a0 - Math.PI / (2 * pp), -a0 + Math.PI / (2 * pp)); g.closePath(); g.fill(); }
+  }
+  if (amp) for (let p = 0; p < pp; p++) { const a = field + p * TAU / pp; const x1 = cx + Math.cos(a) * (ri - 4), y1 = cy - Math.sin(a) * (ri - 4); g.strokeStyle = C.ink; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x1, y1); g.stroke(); g.fillStyle = C.ink; g.beginPath(); g.arc(x1, y1, 3, 0, TAU); g.fill(); }
+  g.fillStyle = C['panel-solid']; g.beginPath(); g.arc(cx, cy, 5, 0, TAU); g.fill(); g.strokeStyle = C.ink; g.stroke();
+  // torque-speed envelope
+  const L = d + 34, R = w - 6, Tp = 16, B = h - 18, X = r => L + r / 18000 * (R - L), Y = t => Tp + (u.T - t) / (u.T * 1.6) * (B - Tp);
+  hl(g, L, R, Y(0), C['ink-3']); hl(g, L, R, Y(u.T));
+  txt(g, fmt(u.T), L - 4, Y(u.T) + 3, { al: 'right' }); txt(g, '0', L - 4, Y(0) + 3, { al: 'right' }); txt(g, 'Nm', L - 4, Y(u.T) + 14, { al: 'right' });
+  g.save(); g.beginPath(); g.rect(L, Tp - 6, R - L, B - Tp + 6); g.clip();
+  poly(g, 100, s => X(s * 18000), s => Y(avail(u, s * 18000 * TAU / 60)), C.accent, 1.8);
+  if (!im) poly(g, 100, s => X(s * 18000), s => Y(-Math.min(u.T * 0.8, VEH.regenP / Math.max(s * 18000 * TAU / 60, 1))), C.lv, 1.4);
+  g.restore();
+  txt(g, '0', X(0), h - 4, { al: 'center' }); txt(g, '18k rpm', R, h - 4, { al: 'right' });
+  txt(g, 'torsi tetap', X(600), Y(u.T) - 5, { c: C['ink-2'] }); txt(g, 'daya tetap', X(12500), Y(avail(u, 12500 * TAU / 60)) - 6, { al: 'center', c: C['ink-2'] });
+  dot(g, X(S.rpm), Y(T));
+  $('#cMeta').textContent = im ? (T ? `slip ${fmt(Math.abs(S.slipF) * 100, 1)} % · ${fmt(T)} Nm` : 'tanpa arus · berputar bebas') : `${fmt(S.rpm)} rpm · ${fmt(T)} Nm`;
+}
+function drawSpark() {
+  const [w, h] = prep(sparkCv, sg), H2 = S.hist, n = 300, mx = 300, mn = -100, Y = p => 2 + (mx - p) / (mx - mn) * (h - 4);
+  hl(sg, 0, w, Y(0), C['ink-3']);
+  if (H2.length < 2) return;
+  for (const [sign, col] of [[1, C.accent], [-1, C.lv]]) {
+    sg.fillStyle = rgba(col, 0.18); sg.strokeStyle = col; sg.lineWidth = 1.3; sg.beginPath(); sg.moveTo(w - (H2.length - 1) / n * w, Y(0));
+    H2.forEach((p, i) => sg.lineTo(w - (H2.length - 1 - i) / n * w, Y(sign > 0 ? Math.max(0, p) : Math.min(0, p))));
+    sg.lineTo(w, Y(0)); sg.closePath(); sg.fill(); sg.stroke();
+  }
+}
+
+/* ================= per-frame visuals ================= */
+const CELLCOL = new THREE.Color(), CA = new THREE.Color(), CB = new THREE.Color(), CN = new THREE.Color();
+let cellClock = 0, lastMode = '';
+function colorCells() {
+  const active = S.sel === 'baterai' || S.sel === 'bms', mode = active ? S.cellMode : 'normal';
+  CA.set(C.cool); CB.set(C.hv); CN.set('#d6dae0');
+  for (let i = 0; i < 4416; i++) {
+    if (mode === 'normal') CELLCOL.copy(CN);
+    else {
+      let t;
+      if (mode === 'tegangan') { const b = Math.floor((i % 1104) / 46) + Math.floor(i / 1104) * 24; t = 0.5 + (brick[b] - S.mean) * 1000 / 30; }
+      else { const x = cellXZ[i * 2], z = cellXZ[i * 2 + 1]; const tt = S.temp.pack + 2.2 * (1 - Math.abs(x) / 0.72) + 2.5 * (1.1 - z) / 2.1 - 1.5; t = (tt - 18) / 24; }
+      t = clamp(t, 0, 1); CELLCOL.copy(t < 0.5 ? CA : CN).lerp(t < 0.5 ? CN : CB, t < 0.5 ? t * 2 : (t - 0.5) * 2);
+    }
+    cells.setColorAt(i, CELLCOL);
+  }
+  cells.instanceColor.needsUpdate = true; lastMode = mode;
+}
+const ex = { v: 0 };
+function visuals(dt, t) {
+  // drive units
+  for (const [du, ang, front] of [[DU_R, S.a.mR, false], [DU_F, S.a.mF, true]]) {
+    du.motor.rotor.rotation.x = ang;
+    const sA = TAU / ZA, sS = TAU / ZS, g = du.geo;
+    du.gA.rotation.x = 0.5 * sA - g.phi1 + ang;
+    const thB = -ang * ZA / ZB; du.gB.rotation.x = (-g.phi1 - Math.PI) + thB;
+    du.gS.rotation.x = 0.5 * sS - g.phi2 + thB;
+    const ringA = -thB * ZS / ZR; du.ring.rotation.x = -g.phi2 - Math.PI + ringA;
+    du.diff.rotation.x = ringA;
+    const aL = front ? S.a.fL : S.a.rL, aR = front ? S.a.fR : S.a.rR;
+    du.sL.rotation.x = aL; du.sR.rotation.x = aR; du.sides[1].rotation.x = aL; du.sides[0].rotation.x = aR;
+    const spin = (aL - aR) / 2 * 1.6; du.spiders[0].rotation.y = spin; du.spiders[1].rotation.y = -spin;
+  }
+  for (const w of WH.front) { w.spin.rotation.x = w.side === 'L' ? S.a.fL : S.a.fR; w.steer.rotation.y = S.steer; }
+  for (const w of WH.rear) w.spin.rotation.x = w.side === 'L' ? S.a.rL : S.a.rR;
+  TH.fan.rotation.z = S.a.fan;
+  VCU.acc.rotation.x = -S.thr * 0.3; VCU.brk.rotation.x = -S.brk * 0.3;
+  // explode
+  S.explode = lerp(S.explode, S.exT, 1 - Math.exp(-dt * (REDUCED ? 60 : 4)));
+  const e = S.explode;
+  bodyLift.position.y = e * 1.6;
+  for (const d of doors) d.o.position.x = d.x0 + d.s * e * 0.55;
+  if (bonnet) bonnet.position.y = bonnet.userData.y0 + e * 0.35; if (boot) boot.position.y = boot.userData.y0 + e * 0.35;
+  for (const c of Object.values(COMPS)) for (const x of c.ex) x.o.position.y = x.y0 + x.dy * e;
+  // ground scroll & shadow
+  if (groundMat.map) groundMat.map.offset.y -= S.v * dt * S.play / 2 * (S.paused ? 0 : 1);
+  ground.visible = shadow.visible = camera.position.y > 0.03;
+  // LEDs & brake glow
+  const st = pcState(PC.t);
+  const ledC = on => on ? C.lv : C['ink-3'];
+  LEDS.neg.material.color.set(ledC(st.neg)); LEDS.pos.material.color.set(ledC(st.pos)); LEDS.pre.material.color.set(st.pre ? C.hv : C['ink-3']);
+  LEDS.port.material.color.set(S.charge ? (Math.sin(t * 5) > 0 ? C.lv : C.cool) : C['ink-3']);
+  const glow = clamp(S.Fb / 9000, 0, 1) * (S.v > 0.2 ? 1 : 0);
+  for (const m of hubMats) { m.emissive.set(C.hot); m.emissiveIntensity = glow * 1.4; }
+  station.visible = !!S.charge || (S.scen === 'ac' || S.scen === 'dc') && S.v < 0.05;
+  if (station.visible) { const big = S.scen === 'dc'; stBody.scale.y = big ? 1 : 0.62; stBody.position.y = big ? 0.75 : 0.465; stScr.position.y = big ? 1.18 : 0.72; stScreen.color.set(S.charge ? C.lv : C.cool); }
+  // flows
+  if (!S.paused) {
+    const ready = PC.phase === 'ready', ch = S.charge && S.Pch > 0;
+    F.pack.set(ready ? S.Pb : 0); F.rear.set(S.Pr); F.front.set(S.Pf);
+    F.acR.forEach(f => f.set(S.Pr)); F.acF.forEach(f => f.set(S.Pf));
+    F.dcdc.set(S.aux, 3000); F.lv.set(S.aux, 3000);
+    F.acport.set(ch && S.charge === 'ac' ? S.Pch : 0, 30e3); F.obc.set(ch && S.charge === 'ac' ? S.Pch : 0, 30e3);
+    F.dcport.set(ch && S.charge === 'dc' ? S.Pch : 0); F.station.set(ch ? S.Pch : 0, S.charge === 'dc' ? 120e3 : 30e3);
+    F.station.mat.color.set(S.charge === 'ac' ? C.ac : C.hv);
+    F.cool.set(ready ? 2000 + 1500 * clamp((S.temp.cool - 26) / 10, 0, 1) : 0, 3000);
+    F.can.forEach(f => f.set(ready ? 400 : 0, 1000));
+    for (const f of FLOWS) f.update(dt);
+  }
+  cellClock += dt; if (cellClock > 0.25 || (lastMode !== ((S.sel === 'baterai' || S.sel === 'bms') ? S.cellMode : 'normal'))) { cellClock = 0; colorCells(); }
+}
+
+/* ================= loop ================= */
+let last = performance.now(), roClock = 0, histClock = 0, canClock = 0, T0 = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; T0 += dt;
+  if (!S.paused) {
+    step(dt);
+    histClock += dt; if (histClock > 0.1) { histClock = 0; S.hist.push(S.Pb / 1000); if (S.hist.length > 300) S.hist.shift(); }
+    canClock += dt; if (canClock > 0.35) { canClock = 0; const k = Math.floor(T0 * 3) % 4; const pad = s => s.padEnd(6);
+      if (PC.phase !== 'off') S.can.push([`${pad('0x118')}pedal=${fmt(S.thr * 100)}%`, `${pad('0x108')}T_B=${fmt(S.Tr)}Nm`, `${pad('0x186')}T_D=${fmt(S.Tf)}Nm`, `${pad('0x132')}I=${fmt(S.I)}A`][k]); if (S.can.length > 20) S.can.shift(); }
+  }
+  if (tween) { tween.s += dt / tween.dur; const s = Math.min(1, tween.s), e = s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2; camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e); if (s >= 1) tween = null; }
+  controls.update();
+  if (hoverDirty && lastPtr) { hoverDirty = false; const id = pick(lastPtr[0], lastPtr[1]); if (id !== S.hover) { S.hover = id; stage.classList.toggle('pick', !!id); } }
+  visuals(dt, T0); highlight(T0);
+  renderer.render(scene, camera);
+  updateLabels();
+  roClock += dt; if (roClock > 0.1) { roClock = 0; updateReadouts(); }
+  if (CHARTS[S.sel] && chartCv.clientWidth) { const [w, h] = prep(chartCv, cg); CHARTS[S.sel](cg, w, h); }
+  drawSpark();
+}
+
+/* ================= boot ================= */
+refreshChips(); refreshOv(); setBody(S.body);
+$$('#cams .chip')[0].setAttribute('aria-pressed', 'true');
+const h0 = location.hash.slice(1);
+select(P[h0] ? h0 : 'motor-belakang', { fly: !!P[h0] });
+resize();
+for (let i = 0; i < 30; i++) step(1 / 30);
+requestAnimationFrame(frame);
+window.__ev = { S, PC, COMPS, camera, controls, select, setScenario, setBody };
+</script>
+
+</body>
+</html>
