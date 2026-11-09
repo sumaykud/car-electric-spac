@@ -1,10 +1,15 @@
 # Anatomi Mobil Listrik
 
+![Cover Anatomi Mobil Listrik](Cover%20car%20electric.png)
+
+
 Modul 3D interaktif (Three.js) untuk mengenal komponen dan cara kerja powertrain mobil listrik dua motor. Pilih komponen di daftar, klik langsung di model 3D, atau ikuti rantai aliran energi. Setiap komponen punya penjelasan fungsi, langkah cara kerja, spesifikasi tipikal, dan grafik live dari simulasi.
+
 
 ## Menjalankan
 
 Halaman memuat model lewat `fetch()`, jadi harus dibuka lewat server web. Membuka `index.html` langsung dari disk (`file://`) tidak akan memuat model mobil.
+
 
 ```bash
 python3 -m http.server 8000
